@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# PH-PANEL – main installation script (phase 1: packages + base services + authentication daemon).
+set -Eeuo pipefail
+
+INSTALLER_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+PHPANEL_VERSION=$(cat "$INSTALLER_DIR/VERSION" 2>/dev/null || echo 0.1.0-dev)
+
+usage() {
+  cat <<EOF
+PH-PANEL installer $PHPANEL_VERSION
+
+Usage: sudo bash phpanel-install.sh [options]
+
+  --hostname FQDN         the panel hostname (e.g. panel.example.com)
+  --public-ip IP          the public IP, if auto-detection is wrong (servers on a LAN)
+  --profile P             auto|minim|mic|standard|mare (default: auto, based on RAM)
+  --php LIST              auto|all|8.4,7.4,... (default: based on profile)
+  --admin-email EMAIL     the first administrator's email
+  --no-panel              install only the stack, without the panel daemon
+  --only STEPS            run only the given steps (e.g. 03,04)
+  --force                 also re-run steps that already completed
+  --dry-run               show what would be done, without making changes
+  -h, --help              this message
+EOF
+}
+
+OPT_HOSTNAME='' OPT_PUBLIC_IP='' OPT_PROFILE=auto OPT_PHP=auto OPT_ADMIN_EMAIL='' OPT_NO_PANEL=0 OPT_ONLY='' OPT_FORCE=0
+DRY_RUN=0
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --hostname) OPT_HOSTNAME=${2,,}; shift 2 ;;
+    --public-ip) OPT_PUBLIC_IP=$2; shift 2 ;;
+    --profile) OPT_PROFILE=$2; shift 2 ;;
+    --php) OPT_PHP=$2; shift 2 ;;
+    --admin-email) OPT_ADMIN_EMAIL=$2; shift 2 ;;
+    --no-panel) OPT_NO_PANEL=1; shift ;;
+    --only) OPT_ONLY=$2; shift 2 ;;
+    --force) OPT_FORCE=1; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown option: $1" >&2; usage; exit 2 ;;
+  esac
+done
+export DRY_RUN
+
+. "$INSTALLER_DIR/lib/common.sh"
+for f in "$INSTALLER_DIR"/steps/[0-9][0-9]-*.sh; do . "$f"; done
+
+[[ $EUID -eq 0 ]] || die "run as root: sudo bash $0"
+install -d -m 755 "$PHPANEL_STATE_DIR"
+touch "$PHPANEL_LOG_FILE"; chmod 600 "$PHPANEL_LOG_FILE"
+: >"$PHPANEL_REPORT_FILE"
+
+on_error() {
+  local rc=$? line=$1
+  services_unblock
+  error "unexpected error in step '$CURRENT_STEP', line $line (code $rc). Details: $PHPANEL_LOG_FILE"
+  exit "$rc"
+}
+trap 'on_error $LINENO' ERR
+trap 'services_unblock' EXIT   # policy-rc.d never stays on the system
+
+STEPS=(
+  "01:preflight:Initial checks"
+  "02:profile:Resource profile and swap"
+  "03:repos:Vendor repositories"
+  "04:packages:Package installation"
+  "05:system:System configuration (local DNS, firewall, quotas)"
+  "06:web:Web configuration (Caddy, Apache, PHP)"
+  "07:data:Data and access configuration (MariaDB, Knot, FTP, Fail2Ban)"
+  "08:mail:Mail configuration (Postfix, Dovecot, Rspamd)"
+  "09:webapps:Webmail and phpMyAdmin"
+  "10:maint:Maintenance (DB dump, health check, cron)"
+  "11:services:Starting services"
+  "12:panel:Panel daemon (authentication)"
+)
+
+printf '%s\n' "${C_BOLD}PH-PANEL installer $PHPANEL_VERSION${C_RESET}  (log: $PHPANEL_LOG_FILE)"
+[[ $DRY_RUN == 1 ]] && printf '%s\n' "${C_YEL}Dry-run mode: nothing is modified.${C_RESET}"
+_logfile "=== start $PHPANEL_VERSION args: hostname=$OPT_HOSTNAME profile=$OPT_PROFILE php=$OPT_PHP no_panel=$OPT_NO_PANEL dry=$DRY_RUN"
+
+facts_load
+for entry in "${STEPS[@]}"; do
+  IFS=: read -r num name title <<<"$entry"
+  if [[ -n $OPT_ONLY && ",$OPT_ONLY," != *",$num,"* ]]; then continue; fi
+  CURRENT_STEP="$num-$name"
+  step_title "$num" "$title"
+  # step 01 always runs: it refreshes the facts the other steps depend on
+  if [[ $num != 01 && $OPT_FORCE == 0 ]] && step_done "$CURRENT_STEP"; then
+    info "already done, skipping (use --force to run again)"
+    continue
+  fi
+  "step_${num}_${name}"
+  mark_done "$CURRENT_STEP"
+done
+CURRENT_STEP=final
+
+# ---------- summary ----------
+printf '\n%s\n' "${C_BOLD}Summary${C_RESET}"
+n_err=$(grep -c '^ERROR' "$PHPANEL_REPORT_FILE" || true)
+n_warn=$(grep -c '^WARN' "$PHPANEL_REPORT_FILE" || true)
+if [[ $n_err -eq 0 && $n_warn -eq 0 ]]; then
+  ok "no errors or warnings"
+else
+  [[ $n_err -gt 0 ]] && { printf '%s\n' "  ${C_RED}Errors ($n_err):${C_RESET}"; awk -F'\t' '$1=="ERROR" {print "   - [" $2 "] " $3}' "$PHPANEL_REPORT_FILE"; }
+  [[ $n_warn -gt 0 ]] && { printf '%s\n' "  ${C_YEL}Warnings ($n_warn):${C_RESET}"; awk -F'\t' '$1=="WARN" {print "   - [" $2 "] " $3}' "$PHPANEL_REPORT_FILE"; }
+  info "full report: $PHPANEL_REPORT_FILE"
+fi
+
+facts_load
+if [[ $DRY_RUN != 1 && -f /root/.phpanel/admin-initial.txt ]]; then
+  host=${PANEL_HOSTNAME:-${IP_PUBLIC:-${IP_LOCAL:-127.0.0.1}}}
+  printf '\n%s\n' "${C_BOLD}Panel:${C_RESET} https://$host:8443${IP_LOCAL:+  (on the LAN: https://$IP_LOCAL:8443)}"
+  sed 's/^/  /' /root/.phpanel/admin-initial.txt
+  info "(self-signed certificate: the browser will show a warning until ACME is configured)"
+fi
+[[ $n_err -eq 0 ]] || exit 3

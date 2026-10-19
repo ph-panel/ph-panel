@@ -1,0 +1,33 @@
+[Unit]
+Description=PH-PANEL web (UI + API on :8443)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=phpanel
+Group=phpanel
+ExecStart=/opt/phpanel/phpanel-web serve --data /opt/phpanel/data --listen :8443 \
+  --cert /opt/phpanel/ssl/panel/fullchain.pem --key /opt/phpanel/ssl/panel/privkey.pem \
+  --auth-log /opt/phpanel/logs/auth.log
+Restart=on-failure
+RestartSec=3
+
+# isolation: the web process has no root privileges [F1]
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+ReadWritePaths=/opt/phpanel/data /opt/phpanel/logs
+ReadOnlyPaths=/opt/phpanel/ssl
+MemoryMax=128M
+
+[Install]
+WantedBy=multi-user.target

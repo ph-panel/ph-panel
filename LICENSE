@@ -1,0 +1,37 @@
+PH-PANEL Software License
+
+Copyright (c) 2026 PH-PANEL. All rights reserved.
+
+1. Scope. This license covers the PH-PANEL installer scripts, the PH-PANEL panel binaries
+   and the documentation distributed in this repository (together, the "Software").
+
+2. Grant. You may install and run the Software, free of charge, on servers that you own or
+   administer, in the Community edition. Paid editions, when offered, are governed by a
+   separate agreement and a signed license file.
+
+3. Source-available scripts. The installer scripts are published so that anyone can inspect
+   what runs with root privileges. You may read them and adapt them for your own
+   installations. You may not redistribute them, in original or modified form, nor publish
+   derivative installers.
+
+4. Restrictions. You may not, and may not allow others to: (a) copy, redistribute, sell,
+   rent, lease or sublicense the Software; (b) modify, decompile, disassemble or otherwise
+   attempt to derive the source code of the binaries; (c) remove copyright or license
+   notices; (d) offer the Software, or a service built on it, as a competing product.
+
+5. Third-party software. The installer downloads and configures software from third parties
+   (for example Apache, Caddy, Knot DNS, Postfix, Dovecot, Rspamd, MariaDB, PHP, Roundcube,
+   SnappyMail and phpMyAdmin). Each is distributed under its own license, which applies to
+   that software independently of this one.
+
+6. No warranty. The Software is provided "as is", without warranty of any kind, express or
+   implied, including merchantability, fitness for a particular purpose and non-infringement.
+
+7. Limitation of liability. To the maximum extent permitted by law, the authors are not liable
+   for any damages arising from the use of, or inability to use, the Software, including data
+   loss and service interruption. You are responsible for backups of your own servers.
+
+8. Termination. This license ends automatically if you breach it. On termination you must stop
+   using the Software and delete all copies.
+
+Contact: office@ph-panel.com
