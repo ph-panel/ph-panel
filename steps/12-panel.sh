@@ -16,6 +16,12 @@ step_12_panel() {
   install -d -m 750 -o phpanel -g phpanel /opt/phpanel/data /opt/phpanel/logs
   install -d -m 750 -o root -g phpanel /opt/phpanel/ssl /opt/phpanel/ssl/panel
   install -d -m 750 -o root -g phpanel /etc/phpanel
+  install -d -m 755 /opt/phpanel/lang /opt/phpanel/themes
+  # master key for 2FA secrets and trusted-device cookies [18]; created once, never replaced
+  if [[ ! -s /etc/phpanel/secret.key ]]; then
+    ( umask 077; head -c 32 /dev/urandom >/etc/phpanel/secret.key )
+  fi
+  chown phpanel:phpanel /etc/phpanel/secret.key; chmod 600 /etc/phpanel/secret.key
   install -m 755 "$bin" /opt/phpanel/phpanel-web
   install -m 750 -o root -g root "$rootbin" /opt/phpanel/phpanel-root
   ln -sf /opt/phpanel/phpanel-web /usr/local/bin/phpanel-web
@@ -43,7 +49,8 @@ step_12_panel() {
   if [[ -d /etc/fail2ban ]]; then
     cat >/etc/fail2ban/filter.d/phpanel.conf <<'EOF'
 [Definition]
-failregex = ^\S+ phpanel auth (failed|blocked) ip=<HOST> 
+# Fail2Ban strips the timestamp before matching, so the line starts at "phpanel auth ..."
+failregex = ^\s*phpanel auth (?:failed|blocked) ip=<HOST>(?:\s|$)
 ignoreregex =
 EOF
     cat >/etc/fail2ban/jail.d/phpanel.conf <<'EOF'
