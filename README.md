@@ -1,6 +1,4 @@
-<p align="center"><img src="assets/logo.svg" width="72" alt="PH-PANEL logo"></p>
-
-<h1 align="center">PH-PANEL</h1>
+# PH-PANEL
 
 Web hosting control panel for Linux servers: domains, DNS, mail, databases, FTP and PHP in one place.
 Early development: the installer and the base stack work, the panel itself is still small.

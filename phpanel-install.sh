@@ -108,10 +108,48 @@ else
 fi
 
 facts_load
-if [[ $DRY_RUN != 1 && -f /root/.phpanel/admin-initial.txt ]]; then
-  host=${PANEL_HOSTNAME:-${IP_PUBLIC:-${IP_LOCAL:-127.0.0.1}}}
-  printf '\n%s\n' "${C_BOLD}Panel:${C_RESET} https://$host:8443${IP_LOCAL:+  (on the LAN: https://$IP_LOCAL:8443)}"
-  sed 's/^/  /' /root/.phpanel/admin-initial.txt
-  info "(self-signed certificate: the browser will show a warning until ACME is configured)"
+
+# access_summary – URLs, ports and the first login; also saved to /root/.phpanel/access.txt (0600)
+access_summary() {
+  local email='' password='' urls=() u row port label state where=''
+  [[ ${NAT_MODE:-0} == 1 ]] && where=' / router'
+  install -d -m 700 /root/.phpanel
+  if [[ -f /root/.phpanel/admin-initial.txt ]]; then
+    email=$(sed -n 's/^email=//p' /root/.phpanel/admin-initial.txt)
+    password=$(sed -n 's/^password=//p' /root/.phpanel/admin-initial.txt)
+  fi
+  [[ -n ${PANEL_HOSTNAME:-} ]] && urls+=("https://$PANEL_HOSTNAME:8443|hostname")
+  [[ -n ${IP_PUBLIC:-} ]] && urls+=("https://$IP_PUBLIC:8443|public IP")
+  [[ -n ${IP_LOCAL:-} && ${IP_LOCAL:-} != "${IP_PUBLIC:-}" ]] && urls+=("https://$IP_LOCAL:8443|local network")
+  [[ ${#urls[@]} -gt 0 ]] || urls+=("https://127.0.0.1:8443|this server only")
+
+  printf '%s\n' "${C_BOLD}PH-PANEL is ready${C_RESET}"
+  printf '\n%s\n' "${C_BOLD}Panel URLs${C_RESET}"
+  for u in "${urls[@]}"; do printf '  %-40s (%s)\n' "${u%%|*}" "${u##*|}"; done
+  printf '\n%s\n' "${C_BOLD}Login${C_RESET}"
+  if [[ -n $email ]]; then
+    printf '  user:      %s\n  password:  %s\n' "$email" "$password"
+    printf '  (saved in /root/.phpanel/admin-initial.txt; change the password after the first login)\n'
+  else
+    printf '  no administrator was created; create one with: phpanel-web admin create --data /opt/phpanel/data --email you@example.com\n'
+  fi
+  printf '\n%s\n' "${C_BOLD}Ports${C_RESET}  (open them in your provider firewall${where}; state is what this server listens on now)"
+  for row in "22|SSH" "80|HTTP (Caddy, ACME)" "443|HTTPS (Caddy, sites)" "8443|PH-PANEL panel and API" \
+             "25|SMTP" "465|SMTPS" "587|Mail submission" "993|IMAPS" "995|POP3S" "21|FTP (TLS)" "53|DNS (TCP and UDP)"; do
+    port=${row%%|*}; label=${row#*|}
+    if ss -ltnH "sport = :$port" 2>/dev/null | grep -q .; then state=listening
+    elif [[ $port == 443 ]]; then state='starts with the first site'
+    else state='not listening'; fi
+    printf '  %-6s %-30s %s\n' "$port" "$label" "$state"
+  done
+  printf '  %-6s %-30s %s\n' "30000-31000" "FTP passive range" "(opened by the firewall)"
+  [[ ${NAT_MODE:-0} == 1 ]] && printf '  Behind NAT: forward these ports from the router to %s.\n' "${IP_LOCAL:-this server}"
+  [[ -n ${PANEL_HOSTNAME:-} ]] || printf '\n  No --hostname was given: the panel uses a self-signed certificate; the browser will show a warning.\n'
+}
+
+if [[ $DRY_RUN != 1 ]]; then
+  printf '\n'
+  access_summary | tee >(sed 's/\x1b\[[0-9;]*m//g' >/root/.phpanel/access.txt) 
+  chmod 600 /root/.phpanel/access.txt 2>/dev/null || true
 fi
 [[ $n_err -eq 0 ]] || exit 3

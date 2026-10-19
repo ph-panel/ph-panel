@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-<style>:root{--a:#f0384a;--b:#a30017}@media (prefers-color-scheme:dark){:root{--a:#ff5466;--b:#c40c24}}</style>
-<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--a)"/><stop offset="1" style="stop-color:var(--b)"/></linearGradient></defs>
-<rect width="32" height="32" rx="8" fill="url(#g)"/>
-<path fill="#fff" fill-rule="evenodd" d="M8.5 7h8.3a5.6 5.6 0 0 1 0 11.2H12.6V25H8.5zM12.6 10.8v3.6h4.1a1.8 1.8 0 0 0 0-3.6z"/>
-<circle cx="22.8" cy="22.4" r="2.1" fill="#fff"/>
-</svg>
