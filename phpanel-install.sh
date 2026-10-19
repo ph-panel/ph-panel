@@ -73,6 +73,7 @@ STEPS=(
   "10:maint:Maintenance (DB dump, health check, cron)"
   "11:services:Starting services"
   "12:panel:Panel daemon (authentication)"
+  "13:letsencrypt:Let's Encrypt certificate for the panel"
 )
 
 printf '%s\n' "${C_BOLD}PH-PANEL installer $PHPANEL_VERSION${C_RESET}  (log: $PHPANEL_LOG_FILE)"
@@ -144,7 +145,14 @@ access_summary() {
   done
   printf '  %-6s %-30s %s\n' "30000-31000" "FTP passive range" "(opened by the firewall)"
   [[ ${NAT_MODE:-0} == 1 ]] && printf '  Behind NAT: forward these ports from the router to %s.\n' "${IP_LOCAL:-this server}"
-  [[ -n ${PANEL_HOSTNAME:-} ]] || printf '\n  No --hostname was given: the panel uses a self-signed certificate; the browser will show a warning.\n'
+  if [[ -z ${PANEL_HOSTNAME:-} ]]; then
+    printf '\n  No --hostname was given: the panel uses a self-signed certificate; the browser will show a warning.\n'
+  else
+    case ${LE_STATUS:-skipped} in
+      issued) printf "\n  Certificate: Let's Encrypt (renewed automatically at 02:30).\n" ;;
+      *) printf "\n  Certificate: self-signed for now (Let's Encrypt: %s). Check that %s points to this server and port 80 is open; the daily job retries. Log: /opt/phpanel/logs/le.log\n" "${LE_STATUS:-skipped}" "$PANEL_HOSTNAME" ;;
+    esac
+  fi
 }
 
 if [[ $DRY_RUN != 1 ]]; then

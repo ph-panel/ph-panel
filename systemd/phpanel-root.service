@@ -1,0 +1,27 @@
+[Unit]
+Description=PH-PANEL privileged helper (service control)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/phpanel/phpanel-root serve --socket /run/phpanel-root.sock --user phpanel --log /opt/phpanel/logs/root.log
+Restart=on-failure
+RestartSec=2
+
+# the helper runs as root but is confined: it only talks to systemd and runs fixed checks [F1]
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+ReadWritePaths=-/etc/hosts -/etc/mailname /etc/postfix /opt/phpanel/logs
+MemoryMax=64M
+
+[Install]
+WantedBy=multi-user.target

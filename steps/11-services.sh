@@ -55,6 +55,9 @@ step_11_services() {
   if [[ -f /etc/nftables.conf ]]; then service_check nftables; else warn "firewall not enabled (/etc/nftables.conf is missing)"; fi
 
   service_check chrony
+  # chrony replaces systemd-timesyncd; clear the stale failed state it leaves behind
+  run systemctl disable --now systemd-timesyncd || true
+  run systemctl reset-failed systemd-timesyncd || true
   service_check unbound
   if have unbound-checkconf; then
     unbound-checkconf >>"$PHPANEL_LOG_FILE" 2>&1 && ok "unbound-checkconf OK" || error "unbound-checkconf failed"

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Step 12 – the panel daemon (v0.1: authentication only), certificate, systemd, Fail2Ban, first admin.
+# Step 12 – the panel daemons (phpanel-web, phpanel-root), certificate, systemd, Fail2Ban, first admin.
 
 step_12_panel() {
   if [[ ${OPT_NO_PANEL:-0} == 1 ]]; then info "--no-panel: skipping the daemon"; return 0; fi
-  local bin="$INSTALLER_DIR/bin/phpanel-web-linux-$ARCH"
-  if [[ ! -x $bin ]]; then
-    error "binary $bin is missing (run daemon/build.sh first); the panel was not installed"
+  local bin="$INSTALLER_DIR/bin/phpanel-web-linux-$ARCH" rootbin="$INSTALLER_DIR/bin/phpanel-root-linux-$ARCH"
+  if [[ ! -x $bin || ! -x $rootbin ]]; then
+    error "panel binaries are missing in $INSTALLER_DIR/bin (run daemon/build.sh first); the panel was not installed"
     return 0
   fi
   [[ $DRY_RUN == 1 ]] && { info "[dry-run] installing $bin to /opt/phpanel"; return 0; }
@@ -17,6 +17,7 @@ step_12_panel() {
   install -d -m 750 -o root -g phpanel /opt/phpanel/ssl /opt/phpanel/ssl/panel
   install -d -m 750 -o root -g phpanel /etc/phpanel
   install -m 755 "$bin" /opt/phpanel/phpanel-web
+  install -m 750 -o root -g root "$rootbin" /opt/phpanel/phpanel-root
   ln -sf /opt/phpanel/phpanel-web /usr/local/bin/phpanel-web
 
   # certificate: self-signed until the ACME step (lego, [21]); the daemon reloads it by itself when it changes
@@ -36,6 +37,7 @@ step_12_panel() {
   fi
 
   install -m 644 "$INSTALLER_DIR/systemd/phpanel-web.service" /etc/systemd/system/phpanel-web.service
+  install -m 644 "$INSTALLER_DIR/systemd/phpanel-root.service" /etc/systemd/system/phpanel-root.service
 
   # Fail2Ban for the panel login [18]
   if [[ -d /etc/fail2ban ]]; then
@@ -73,7 +75,10 @@ EOF
   fi
 
   run systemctl daemon-reload
-  run systemctl enable --now phpanel-web
+  # restart (not just enable --now) so a re-run picks up new binaries; the helper starts first [F1]
+  run systemctl enable phpanel-root phpanel-web
+  run systemctl restart phpanel-root || error "phpanel-root did not start (journalctl -u phpanel-root)"
+  run systemctl restart phpanel-web
   local i
   for i in 1 2 3 4 5; do
     sleep 1
