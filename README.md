@@ -1,7 +1,16 @@
 # PH-PANEL
 
 Web hosting control panel for Linux servers: domains, DNS, mail, databases, FTP and PHP in one place.
-Early development: the installer and the base stack work, the panel itself is still small.
+
+> **Alpha software, for testing only.**
+> PH-PANEL is an early alpha release. It is intended only for testing and evaluation on throwaway
+> servers, and for nothing else. Do not use it in production, with real customers, or with data you
+> cannot afford to lose. The installer changes the whole system (packages, firewall, DNS, mail, web
+> and database services) and expects a clean server.
+>
+> It is provided "as is", without any warranty or support. The authors accept no responsibility or
+> liability for data loss, downtime, security incidents or any other damage resulting from its use.
+> Features, configuration and behaviour can change or break between versions without notice.
 
 ## Install
 
