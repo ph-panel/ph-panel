@@ -12,6 +12,10 @@ ExecStart=/opt/phpanel/phpanel-web serve --data /opt/phpanel/data --listen :8443
   --auth-log /opt/phpanel/logs/auth.log
 Restart=on-failure
 RestartSec=3
+# the phpMyAdmin sign-on socket lives in /run/phpanel; its group is the only way in besides the panel itself
+RuntimeDirectory=phpanel
+RuntimeDirectoryMode=0755
+SupplementaryGroups=phpanel-pma
 
 # isolation: the web process has no root privileges [F1]
 NoNewPrivileges=yes

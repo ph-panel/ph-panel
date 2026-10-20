@@ -12,6 +12,7 @@ step_12_panel() {
 
   # unprivileged user [F1]
   id phpanel >/dev/null 2>&1 || useradd --system --home-dir /opt/phpanel --shell /usr/sbin/nologin phpanel
+  getent group phpanel-pma >/dev/null || groupadd --system phpanel-pma   # owns the phpMyAdmin sign-on socket
   install -d -m 755 /opt/phpanel
   install -d -m 750 -o phpanel -g phpanel /opt/phpanel/data /opt/phpanel/logs
   install -d -m 750 -o root -g phpanel /opt/phpanel/ssl /opt/phpanel/ssl/panel
