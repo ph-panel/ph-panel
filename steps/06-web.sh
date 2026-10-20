@@ -93,7 +93,7 @@ CONF
   run a2enconf phpanel || true
   run a2ensite phpanel-status || true
 
-  # ModSecurity: Detect on the Minim profile, Block on the rest; JSON audit [02][51]
+  # ModSecurity: Detect on the minimal profile, Block on the rest; JSON audit [02][51]
   local ms=/etc/modsecurity/modsecurity.conf
   if [[ ! -f $ms && -f $ms-recommended ]]; then cp "$ms-recommended" "$ms"; fi
   if [[ -f $ms ]]; then
