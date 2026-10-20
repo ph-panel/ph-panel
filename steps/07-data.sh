@@ -41,6 +41,12 @@ thread_pool_size = ${CPUS:-1}
 innodb_io_capacity = $io
 innodb_flush_neighbors = $flush
 CONF
+  # hardening beyond the distribution defaults: no LOAD DATA LOCAL. skip_name_resolve is deliberately NOT set: with it,
+  # 'user'@'localhost' accounts stop working over TCP (127.0.0.1), which breaks software that connects that way.
+  write_file /etc/mysql/mariadb.conf.d/92-phpanel-security.cnf <<'CONF'
+[mysqld]
+local_infile = 0
+CONF
   # a copy, not a symlink: AppArmor (mariadbd) does not allow reading from /opt
   if [[ $DRY_RUN != 1 ]]; then
     cp -f "$prof/${MYCNF_PROFILE:-p02}.cnf" /etc/mysql/mariadb.conf.d/90-phpanel.cnf

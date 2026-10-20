@@ -47,7 +47,7 @@ mariadb_start() {
   if systemctl is-active --quiet mariadb; then ok "mariadb started (profile ${MYCNF_PROFILE:-?})"; return 0; fi
   warn "mariadb fails to start with profile ${MYCNF_PROFILE:-?}; reverting to the default configuration"
   { journalctl -u mariadb -n 25 --no-pager 2>&1; } >>"$PHPANEL_LOG_FILE"
-  rm -f /etc/mysql/mariadb.conf.d/90-phpanel.cnf /etc/mysql/mariadb.conf.d/91-phpanel-hw.cnf
+  rm -f /etc/mysql/mariadb.conf.d/90-phpanel.cnf /etc/mysql/mariadb.conf.d/91-phpanel-hw.cnf /etc/mysql/mariadb.conf.d/92-phpanel-security.cnf
   run systemctl restart mariadb || true
   sleep 2
   if systemctl is-active --quiet mariadb; then warn "mariadb started only without the PH-PANEL profile"; else error "mariadb fails to start even without the profile"; fi
