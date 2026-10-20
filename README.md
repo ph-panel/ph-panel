@@ -14,14 +14,14 @@ Web hosting control panel for Linux servers: domains, DNS, mail, databases, FTP 
 
 ## Status
 
-Many of the features a hosting control panel needs are still missing. **Rough estimate: about 25% of the planned
-feature set is done** (estimated on 2026-10-20; it was about 15% on 2026-10-19). Check this page again later for progress.
+Many of the features a hosting control panel needs are still missing. **Rough estimate: about 28% of the planned
+feature set is done** (estimated on 2026-10-20; it was about 25% earlier the same day and 15% on 2026-10-19). Check this page again later for progress.
 
 | Area | Done | Notes |
 | --- | --- | --- |
 | Installer and base stack | ~70% | Web, PHP, database, mail, DNS, FTP, firewall and webmail packages are installed and configured. Tested on Ubuntu 26.04 (amd64) only. |
-| Panel core | ~50% | Login, admin, reseller and user roles, packages (including default unlimited ones), impersonation, two-factor authentication, profile, server and service control, hostname and timezone settings, Let's Encrypt for the panel. |
-| Hosting features | ~15% | Done: adding and removing domains with PHP, web server, HTTPS, DNS zone and mail records set up automatically (about 2 seconds), PHP version per domain. Not started: mail accounts, databases, FTP accounts, file manager, cron, subdomains, backups, WordPress tools, statistics. |
+| Panel core | ~55% | Login, admin, reseller and user roles, packages (including default unlimited ones), impersonation, two-factor authentication, profile, server and service control, hostname and timezone settings, Let's Encrypt for the panel, unique account names. |
+| Hosting features | ~20% | Done: adding and removing domains and subdomains with PHP, web server, HTTPS, DNS zone and mail records set up automatically (about 2 seconds), PHP version per domain. Not started: mail accounts, databases, FTP accounts, file manager, cron, backups, WordPress tools, statistics. |
 | Everything else | ~2% | REST API, command line tool, multi-server cluster, account migration, plugins, import from other hosting, billing integration, alerts. |
 
 Not yet tested: Debian, Ubuntu 24.04, arm64, real servers with very little memory in production-like use.
