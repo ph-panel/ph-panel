@@ -6,12 +6,9 @@ step_02_profile() {
   if [[ -n ${OPT_PROFILE:-} && $OPT_PROFILE != auto ]]; then
     profile=$OPT_PROFILE
     info "forced profile: $profile"
-  elif (( mem < 1536 )); then profile=minim
-  elif (( mem < 4096 )); then profile=mic
-  elif (( mem < 8192 )); then profile=standard
-  else profile=mare
+  else profile=$(profile_from_mem "$mem")
   fi
-  case $profile in minim|mic|standard|mare) ;; *) die "invalid --profile: $profile" ;; esac
+  case $profile in minimal|small|standard|large) ;; *) die "invalid --profile: $profile (use minimal, small, standard or large)" ;; esac
 
   # my.cnf p01–p10 by actual RAM [44] (the files are written in the MariaDB configuration step)
   if   (( mem <= 1024 ));  then mycnf=p01
@@ -28,8 +25,8 @@ step_02_profile() {
   fact_set PROFILE "$profile"; fact_set MYCNF_PROFILE "$mycnf"
   ok "resource profile: $profile, MariaDB profile: $mycnf"
 
-  # swap on the Minim and Mic profiles, if it does not already exist
-  if [[ $profile == minim || $profile == mic ]]; then
+  # swap on the minimal and small profiles, if it does not already exist
+  if [[ $profile == minimal || $profile == small ]]; then
     if swapon --show --noheadings | grep -q .; then
       info "swap already exists, keeping it"
     elif [[ -e /swapfile ]]; then

@@ -11,8 +11,8 @@ php_versions_wanted() {
     all) printf '%s\n' "${PHP_ALL_VERSIONS[@]}" ;;
     auto)
       case $PROFILE in
-        minim) echo 8.4 ;;
-        mic) printf '%s\n' 8.3 8.4 ;;
+        minimal) echo 8.4 ;;
+        small) printf '%s\n' 8.3 8.4 ;;
         *) printf '%s\n' "${PHP_ALL_VERSIONS[@]}" ;;
       esac ;;
     *) tr ',' '\n' <<<"$spec" ;;

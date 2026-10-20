@@ -13,7 +13,7 @@ Usage: sudo bash phpanel-install.sh [options]
 
   --hostname FQDN         the panel hostname (e.g. panel.example.com)
   --public-ip IP          the public IP, if auto-detection is wrong (servers on a LAN)
-  --profile P             auto|minim|mic|standard|mare (default: auto, based on RAM)
+  --profile P             auto|minimal|small|standard|large (default: auto, based on RAM)
   --php LIST              auto|all|8.4,7.4,... (default: based on profile)
   --admin-email EMAIL     the first administrator's email
   --admin-username NAME   the administrator's server account name (default: admin plus four random digits, e.g. admin3738)

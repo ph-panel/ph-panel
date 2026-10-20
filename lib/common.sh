@@ -53,7 +53,14 @@ fact_set() {
   printf '%s=%q\n' "$k" "$v" >>"$PHPANEL_FACTS_FILE"
   eval "$k=\$v"
 }
-facts_load() { if [[ -f $PHPANEL_FACTS_FILE ]]; then . "$PHPANEL_FACTS_FILE"; fi; }
+facts_load() {
+  if [[ -f $PHPANEL_FACTS_FILE ]]; then . "$PHPANEL_FACTS_FILE"; fi
+  # a profile name from an older release is not recognised: derive it again from the RAM size
+  case ${PROFILE:-} in
+    minimal|small|standard|large|'') ;;
+    *) [[ -n ${MEM_MB:-} ]] && fact_set PROFILE "$(profile_from_mem "$MEM_MB")" ;;
+  esac
+}
 
 # ---------- apt ----------
 
@@ -163,11 +170,21 @@ write_file() {
   rm -f "$tmp"
 }
 
-# pick MINIM MIC STANDARD MARE – the value matching the resource profile [43]
+# profile_from_mem MB – resource profile name for a RAM size [43]
+profile_from_mem() {
+  local mb=$1
+  if (( mb < 1536 )); then echo minimal
+  elif (( mb < 4096 )); then echo small
+  elif (( mb < 8192 )); then echo standard
+  else echo large
+  fi
+}
+
+# pick MINIMAL SMALL STANDARD LARGE – the value matching the resource profile [43]
 pick() {
   case ${PROFILE:-standard} in
-    minim) echo "$1" ;;
-    mic) echo "$2" ;;
+    minimal) echo "$1" ;;
+    small) echo "$2" ;;
     standard) echo "$3" ;;
     *) echo "$4" ;;
   esac

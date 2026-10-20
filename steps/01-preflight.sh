@@ -84,7 +84,10 @@ step_01_preflight() {
   # --- hostname ---
   if [[ -n ${OPT_HOSTNAME:-} ]]; then
     [[ $OPT_HOSTNAME =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$ ]] || die "invalid --hostname: $OPT_HOSTNAME"
-    local resolved; resolved=$(getent ahostsv4 "$OPT_HOSTNAME" 2>/dev/null | awk 'NR==1 {print $1}') || true
+    # public DNS first (dig), because /etc/hosts may map the hostname to 127.0.0.1; getent only when dig is not installed yet
+    local resolved
+    if have dig; then resolved=$(dig +short +time=3 +tries=1 A "$OPT_HOSTNAME" @1.1.1.1 2>/dev/null | grep -E '^[0-9.]+$' | head -1) || true; fi
+    [[ -n ${resolved:-} ]] || resolved=$(getent ahostsv4 "$OPT_HOSTNAME" 2>/dev/null | awk 'NR==1 {print $1}') || true
     if [[ -n $resolved && $resolved == "${pub_ip:-x}" ]]; then
       ok "hostname $OPT_HOSTNAME resolves to the public IP"
     else

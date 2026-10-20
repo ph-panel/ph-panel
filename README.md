@@ -43,7 +43,7 @@ curl -fsSL https://raw.githubusercontent.com/ph-panel/ph-panel/main/install.sh |
 | Flag | Meaning |
 | --- | --- |
 | `--hostname FQDN` | Panel hostname (needs a DNS record pointing at the server) |
-| `--profile minim\|mic\|standard\|mare` | Resource profile (default: chosen from RAM) |
+| `--profile minimal\|small\|standard\|large` | Resource profile (default: chosen from RAM) |
 | `--php all\|8.4,8.3,...` | PHP versions to install (default: by profile) |
 | `--public-ip IP` | Public IP when the server sits behind NAT |
 | `--dry-run` | Show what would be done, change nothing |
