@@ -68,17 +68,24 @@ EOF
     run systemctl restart fail2ban || warn "fail2ban did not restart after adding the phpanel jail"
   fi
 
-  # first administrator
-  local email=${OPT_ADMIN_EMAIL:-admin@${PANEL_HOSTNAME:-phpanel.local}} out pw
-  if out=$(runuser -u phpanel -- /opt/phpanel/phpanel-web admin create --data /opt/phpanel/data --email "$email" 2>&1); then
+  # first administrator; the Linux account name defaults to admin plus four random digits (for example admin3738)
+  local email=${OPT_ADMIN_EMAIL:-admin@${PANEL_HOSTNAME:-phpanel.local}} out pw uname
+  local create=(admin create --data /opt/phpanel/data --email "$email")
+  [[ -n ${OPT_ADMIN_USERNAME:-} ]] && create+=(--username "$OPT_ADMIN_USERNAME")
+  if out=$(runuser -u phpanel -- /opt/phpanel/phpanel-web "${create[@]}" 2>&1); then
     pw=$(awk '/^Password:/ {print $2}' <<<"$out")
+    uname=$(sed -n 's/.*(username \([a-z0-9]*\)).*/\1/p' <<<"$out" | head -1)
     install -d -m 700 /root/.phpanel
-    printf 'email=%s\npassword=%s\n' "$email" "$pw" >/root/.phpanel/admin-initial.txt
+    printf 'email=%s\nusername=%s\npassword=%s\n' "$email" "$uname" "$pw" >/root/.phpanel/admin-initial.txt
     chmod 600 /root/.phpanel/admin-initial.txt
     fact_set ADMIN_EMAIL "$email"
-    ok "administrator created: $email (password in /root/.phpanel/admin-initial.txt)"
+    ok "administrator created: $email, username $uname (details in /root/.phpanel/admin-initial.txt)"
+  elif [[ $out == *"--username"* ]]; then
+    error "the administrator was not created: ${out#error: }"
+  elif [[ $out == *"UNIQUE"* ]]; then
+    info "the administrator $email already exists; left unchanged"
   else
-    info "the administrator already exists or could not be created: $out"
+    info "the administrator could not be created: $out"
   fi
 
   run systemctl daemon-reload

@@ -16,6 +16,7 @@ Usage: sudo bash phpanel-install.sh [options]
   --profile P             auto|minim|mic|standard|mare (default: auto, based on RAM)
   --php LIST              auto|all|8.4,7.4,... (default: based on profile)
   --admin-email EMAIL     the first administrator's email
+  --admin-username NAME   the administrator's server account name (default: admin plus four random digits, e.g. admin3738)
   --no-panel              install only the stack, without the panel daemon
   --only STEPS            run only the given steps (e.g. 03,04)
   --force                 also re-run steps that already completed
@@ -24,7 +25,7 @@ Usage: sudo bash phpanel-install.sh [options]
 EOF
 }
 
-OPT_HOSTNAME='' OPT_PUBLIC_IP='' OPT_PROFILE=auto OPT_PHP=auto OPT_ADMIN_EMAIL='' OPT_NO_PANEL=0 OPT_ONLY='' OPT_FORCE=0
+OPT_HOSTNAME='' OPT_PUBLIC_IP='' OPT_PROFILE=auto OPT_PHP=auto OPT_ADMIN_EMAIL='' OPT_ADMIN_USERNAME='' OPT_NO_PANEL=0 OPT_ONLY='' OPT_FORCE=0
 DRY_RUN=0
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -33,6 +34,7 @@ while [[ $# -gt 0 ]]; do
     --profile) OPT_PROFILE=$2; shift 2 ;;
     --php) OPT_PHP=$2; shift 2 ;;
     --admin-email) OPT_ADMIN_EMAIL=$2; shift 2 ;;
+    --admin-username) OPT_ADMIN_USERNAME=${2,,}; shift 2 ;;
     --no-panel) OPT_NO_PANEL=1; shift ;;
     --only) OPT_ONLY=$2; shift 2 ;;
     --force) OPT_FORCE=1; shift ;;
@@ -112,12 +114,17 @@ facts_load
 
 # access_summary – URLs, ports and the first login; also saved to /root/.phpanel/access.txt (0600)
 access_summary() {
-  local email='' password='' urls=() u row port label state where=''
+  local email='' username='' password='' urls=() u row port label state where=''
   [[ ${NAT_MODE:-0} == 1 ]] && where=' / router'
   install -d -m 700 /root/.phpanel
   if [[ -f /root/.phpanel/admin-initial.txt ]]; then
     email=$(sed -n 's/^email=//p' /root/.phpanel/admin-initial.txt)
     password=$(sed -n 's/^password=//p' /root/.phpanel/admin-initial.txt)
+    username=$(sed -n 's/^username=//p' /root/.phpanel/admin-initial.txt)
+    # installs made before usernames were generated have no username line: ask the panel
+    if [[ -z $username && -x /opt/phpanel/phpanel-web ]]; then
+      username=$(runuser -u phpanel -- /opt/phpanel/phpanel-web user list --data /opt/phpanel/data 2>/dev/null | awk -v e="$email" '$2==e {print $NF}')
+    fi
   fi
   [[ -n ${PANEL_HOSTNAME:-} ]] && urls+=("https://$PANEL_HOSTNAME:8443|hostname")
   [[ -n ${IP_PUBLIC:-} ]] && urls+=("https://$IP_PUBLIC:8443|public IP")
@@ -129,7 +136,9 @@ access_summary() {
   for u in "${urls[@]}"; do printf '  %-40s (%s)\n' "${u%%|*}" "${u##*|}"; done
   printf '\n%s\n' "${C_BOLD}Login${C_RESET}"
   if [[ -n $email ]]; then
-    printf '  user:      %s\n  password:  %s\n' "$email" "$password"
+    printf '  user:      %s\n' "$email"
+    [[ -z $username ]] || printf '  username:  %s   (the administrator'"'"'s server account name)\n' "$username"
+    printf '  password:  %s\n' "$password"
     printf '  (saved in /root/.phpanel/admin-initial.txt; change the password after the first login)\n'
   else
     printf '  no administrator was created; create one with: phpanel-web admin create --data /opt/phpanel/data --email you@example.com\n'

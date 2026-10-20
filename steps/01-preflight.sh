@@ -28,6 +28,17 @@ step_01_preflight() {
   esac
   fact_set ARCH "$arch"
 
+  # --- the administrator's server account name (only matters before the first administrator exists) ---
+  if [[ -n ${OPT_ADMIN_USERNAME:-} && ! -s /opt/phpanel/data/panel.db ]]; then
+    local checker="$INSTALLER_DIR/bin/phpanel-web-linux-$arch" verdict
+    if [[ -x $checker ]]; then
+      verdict=$("$checker" username check "$OPT_ADMIN_USERNAME" 2>&1) || die "--admin-username: ${verdict#error: }"
+    elif [[ ! $OPT_ADMIN_USERNAME =~ ^[a-z][a-z0-9]{2,31}$ ]]; then
+      die "--admin-username: use 3 to 32 lowercase letters or digits, starting with a letter"
+    fi
+    ok "administrator username: $OPT_ADMIN_USERNAME"
+  fi
+
   # --- the server must be clean: no web, mail, DNS or database stack installed yet ---
   # (skipped when this installer already ran here, or with PHPANEL_ALLOW_DIRTY=1)
   if [[ ! -f $PHPANEL_STATE_FILE && ${PHPANEL_ALLOW_DIRTY:-0} != 1 ]]; then
