@@ -1,5 +1,5 @@
 [Unit]
-Description=PH-PANEL privileged helper (service control)
+Description=PH-PANEL privileged helper (services, hosting)
 After=network.target
 
 [Service]
@@ -8,10 +8,11 @@ ExecStart=/opt/phpanel/phpanel-root serve --socket /run/phpanel-root.sock --user
 Restart=on-failure
 RestartSec=2
 
-# the helper runs as root but is confined: it only talks to systemd and runs fixed checks [F1]
+# The helper runs as root but is confined: it talks to systemd, writes service configuration and
+# account directories, and runs a fixed set of commands [F1]. No W^X restriction: it starts rspamadm (LuaJIT).
 NoNewPrivileges=yes
-ProtectSystem=full
-ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/etc /home /var/lib /var/log /var/backups /var/spool/postfix /opt/phpanel
 PrivateTmp=yes
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
@@ -19,9 +20,7 @@ ProtectControlGroups=yes
 RestrictSUIDSGID=yes
 RestrictRealtime=yes
 LockPersonality=yes
-MemoryDenyWriteExecute=yes
-ReadWritePaths=-/etc/hosts -/etc/mailname /etc/postfix /opt/phpanel/logs
-MemoryMax=64M
+MemoryMax=192M
 
 [Install]
 WantedBy=multi-user.target

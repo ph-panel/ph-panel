@@ -22,7 +22,13 @@ resolver_activate() {
     run systemctl restart systemd-resolved || true
   fi
   if ! systemctl is-active --quiet unbound; then warn "Unbound inactive: leaving /etc/resolv.conf unchanged"; return 0; fi
-  if ! dig +short +time=3 +tries=1 @127.0.0.1 deb.debian.org | grep -q .; then
+  # Unbound may still be warming up right after a restart: try a few times before giving up
+  local n ok=0
+  for n in 1 2 3 4 5; do
+    if dig +short +time=3 +tries=1 @127.0.0.1 deb.debian.org | grep -q .; then ok=1; break; fi
+    sleep 2
+  done
+  if (( ! ok )); then
     warn "Unbound does not resolve: leaving /etc/resolv.conf unchanged"; return 0
   fi
   rm -f /etc/resolv.conf
