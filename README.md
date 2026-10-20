@@ -15,7 +15,7 @@ Web hosting control panel for Linux servers: domains, DNS, mail, databases, FTP 
 ## Status
 
 Many of the features a hosting control panel needs are still missing. **Rough estimate: about 28% of the planned
-feature set is done** (estimated on 2026-10-20; it was about 25% earlier the same day and 15% on 2026-10-19). Check this page again later for progress.
+feature set is done** (estimated on 2026-10-20). Check this page again later for progress.
 
 | Area | Done | Notes |
 | --- | --- | --- |
