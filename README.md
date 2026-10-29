@@ -14,14 +14,14 @@ Web hosting control panel for Linux servers: domains, DNS, mail, databases, FTP 
 
 ## Status
 
-Many of the features a hosting control panel needs are still missing. **Rough estimate: about 32% of the planned
-feature set is done** (estimated on 2026-10-20). Check this page again later for progress.
+Many of the features a hosting control panel needs are still missing. **Rough estimate: about 36% of the planned
+feature set is done** (estimated on 2026-10-29). Check this page again later for progress.
 
 | Area | Done | Notes |
 | --- | --- | --- |
 | Installer and base stack | ~70% | Web, PHP, database, mail, DNS, FTP, firewall and webmail packages are installed and configured. Tested on Ubuntu 26.04 (amd64) only. |
-| Panel core | ~60% | Login, admin, reseller and user roles, packages (including default unlimited ones), impersonation, two-factor authentication, profile, server and service control, hostname and timezone settings, Let's Encrypt for the panel, unique account names. |
-| Hosting features | ~30% | Done: adding and removing domains and subdomains with PHP, web server, HTTPS, DNS zone and mail records set up automatically (about 2 seconds), PHP version and settings per domain, databases and database users, phpMyAdmin with one-click login. Not started: mail accounts, FTP accounts, file manager, cron, backups, WordPress tools, statistics. |
+| Panel core | ~68% | Sign-in by username with password recovery, admin, reseller and user roles, packages (including default unlimited ones), impersonation, two-factor authentication, profile, server and service control with uptime and logs, hostname and timezone settings, Let's Encrypt for the panel, unique account names. |
+| Hosting features | ~34% | Done: adding and removing domains and subdomains with PHP, web server, HTTPS, DNS zone and mail records set up automatically (about 2 seconds), PHP version and settings per domain, databases and database users, phpMyAdmin with one-click login, HTTP to HTTPS redirect per domain. Not started: mail accounts, FTP accounts, file manager, cron, backups, WordPress tools, statistics. |
 | Everything else | ~2% | REST API, command line tool, multi-server cluster, account migration, plugins, import from other hosting, billing integration, alerts. |
 
 Not yet tested: Debian, Ubuntu 24.04, arm64, real servers with very little memory in production-like use.
@@ -46,10 +46,13 @@ curl -fsSL https://raw.githubusercontent.com/ph-panel/ph-panel/main/install.sh |
 | `--profile minimal\|small\|standard\|large` | Resource profile (default: chosen from RAM) |
 | `--php all\|8.4,8.3,...` | PHP versions to install (default: by profile) |
 | `--public-ip IP` | Public IP when the server sits behind NAT |
+| `--admin-username NAME` | Username of the first administrator (default: random `adminNNNN`) |
+| `--admin-email EMAIL` | Recovery email of the first administrator |
 | `--dry-run` | Show what would be done, change nothing |
 
-The panel listens on `https://SERVER-IP:8443`. The first administrator is printed at the end
-and saved in `/root/.phpanel/admin-initial.txt`. The log is `/var/log/phpanel-install.log`.
+The panel listens on `https://SERVER-IP:8443`. The first administrator (a random username such as `admin3738`, with a generated
+password) is printed at the end and saved in `/root/.phpanel/admin-initial.txt`. Sign in with the **username**; the email address is used only to
+recover a forgotten password. The log is `/var/log/phpanel-install.log`.
 Running the installer again is safe: finished steps are skipped (`--force --only 05,06` repeats some).
 
 ## What gets installed

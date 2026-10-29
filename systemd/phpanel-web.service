@@ -7,6 +7,7 @@ Wants=network-online.target phpanel-root.service
 Type=simple
 User=phpanel
 Group=phpanel
+EnvironmentFile=-/etc/phpanel/web.env
 ExecStart=/opt/phpanel/phpanel-web serve --data /opt/phpanel/data --listen :8443 \
   --cert /opt/phpanel/ssl/panel/fullchain.pem --key /opt/phpanel/ssl/panel/privkey.pem \
   --auth-log /opt/phpanel/logs/auth.log

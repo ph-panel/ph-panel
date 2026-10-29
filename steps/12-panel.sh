@@ -69,18 +69,18 @@ EOF
     run systemctl restart fail2ban || warn "fail2ban did not restart after adding the phpanel jail"
   fi
 
-  # first administrator; the Linux account name defaults to admin plus four random digits (for example admin3738)
+  # first administrator: signs in with the username (also the Linux account name); the email is only for recovering the password; the name defaults to admin plus four random digits (for example admin3738)
   local email=${OPT_ADMIN_EMAIL:-admin@${PANEL_HOSTNAME:-phpanel.local}} out pw uname
   local create=(admin create --data /opt/phpanel/data --email "$email")
   [[ -n ${OPT_ADMIN_USERNAME:-} ]] && create+=(--username "$OPT_ADMIN_USERNAME")
   if out=$(runuser -u phpanel -- /opt/phpanel/phpanel-web "${create[@]}" 2>&1); then
     pw=$(awk '/^Password:/ {print $2}' <<<"$out")
-    uname=$(sed -n 's/.*(username \([a-z0-9]*\)).*/\1/p' <<<"$out" | head -1)
+    uname=$(sed -n 's/.*Username: \([a-z0-9]*\) .*/\1/p' <<<"$out" | head -1)
     install -d -m 700 /root/.phpanel
     printf 'email=%s\nusername=%s\npassword=%s\n' "$email" "$uname" "$pw" >/root/.phpanel/admin-initial.txt
     chmod 600 /root/.phpanel/admin-initial.txt
     fact_set ADMIN_EMAIL "$email"
-    ok "administrator created: $email, username $uname (details in /root/.phpanel/admin-initial.txt)"
+    ok "administrator created: username $uname, recovery email $email (details in /root/.phpanel/admin-initial.txt)"
   elif [[ $out == *"--username"* ]]; then
     error "the administrator was not created: ${out#error: }"
   elif [[ $out == *"UNIQUE"* ]]; then
@@ -88,6 +88,12 @@ EOF
   else
     info "the administrator could not be created: $out"
   fi
+
+  # base address of the links in password-recovery mails; taken from here, never from a request header
+  local pub=${PANEL_HOSTNAME:-${IP_PUBLIC:-${IP_LOCAL:-127.0.0.1}}}
+  install -d -m 755 /etc/phpanel
+  printf 'PHPANEL_PUBLIC_URL=https://%s:8443\n' "$pub" >/etc/phpanel/web.env
+  chmod 644 /etc/phpanel/web.env
 
   run systemctl daemon-reload
   # restart (not just enable --now) so a re-run picks up new binaries; the helper starts first [F1]

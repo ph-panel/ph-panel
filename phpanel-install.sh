@@ -15,8 +15,8 @@ Usage: sudo bash phpanel-install.sh [options]
   --public-ip IP          the public IP, if auto-detection is wrong (servers on a LAN)
   --profile P             auto|minimal|small|standard|large (default: auto, based on RAM)
   --php LIST              auto|all|8.4,7.4,... (default: based on profile)
-  --admin-email EMAIL     the first administrator's email
-  --admin-username NAME   the administrator's server account name (default: admin plus four random digits, e.g. admin3738)
+  --admin-email EMAIL     the first administrator's recovery email (used only to reset the password)
+  --admin-username NAME   the administrator's sign-in name and server account name (default: admin plus four random digits, e.g. admin3738)
   --no-panel              install only the stack, without the panel daemon
   --only STEPS            run only the given steps (e.g. 03,04)
   --force                 also re-run steps that already completed
@@ -123,7 +123,7 @@ access_summary() {
     username=$(sed -n 's/^username=//p' /root/.phpanel/admin-initial.txt)
     # installs made before usernames were generated have no username line: ask the panel
     if [[ -z $username && -x /opt/phpanel/phpanel-web ]]; then
-      username=$(runuser -u phpanel -- /opt/phpanel/phpanel-web user list --data /opt/phpanel/data 2>/dev/null | awk -v e="$email" '$2==e {print $NF}')
+      username=$(runuser -u phpanel -- /opt/phpanel/phpanel-web user list --data /opt/phpanel/data 2>/dev/null | awk -v e="$email" '$NF==e {print $2}')
     fi
   fi
   [[ -n ${PANEL_HOSTNAME:-} ]] && urls+=("https://$PANEL_HOSTNAME:8443|hostname")
@@ -136,12 +136,12 @@ access_summary() {
   for u in "${urls[@]}"; do printf '  %-40s (%s)\n' "${u%%|*}" "${u##*|}"; done
   printf '\n%s\n' "${C_BOLD}Login${C_RESET}"
   if [[ -n $email ]]; then
-    printf '  user:      %s\n' "$email"
-    [[ -z $username ]] || printf '  username:  %s   (the administrator'"'"'s server account name)\n' "$username"
-    printf '  password:  %s\n' "$password"
+    printf '  username:        %s\n' "${username:-?}"
+    printf '  password:        %s\n' "$password"
+    printf '  recovery email:  %s   (only used to reset the password)\n' "$email"
     printf '  (saved in /root/.phpanel/admin-initial.txt; change the password after the first login)\n'
   else
-    printf '  no administrator was created; create one with: phpanel-web admin create --data /opt/phpanel/data --email you@example.com\n'
+    printf '  no administrator was created; create one with: phpanel-web admin create --data /opt/phpanel/data --username admin1 --email you@example.com\n'
   fi
   printf '\n%s\n' "${C_BOLD}Ports${C_RESET}  (open them in your provider firewall${where}; state is what this server listens on now)"
   for row in "22|SSH" "80|HTTP (Caddy, ACME)" "443|HTTPS (Caddy, sites)" "8443|PH-PANEL panel and API" \
