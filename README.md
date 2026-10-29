@@ -14,14 +14,14 @@ Web hosting control panel for Linux servers: domains, DNS, mail, databases, FTP 
 
 ## Status
 
-Many of the features a hosting control panel needs are still missing. **Rough estimate: about 36% of the planned
-feature set is done** (estimated on 2026-10-29). Check this page again later for progress.
+Many of the features a hosting control panel needs are still missing. **Rough estimate: about 41% of the planned
+feature set is done** (estimated on 2026-10-30). Check this page again later for progress.
 
 | Area | Done | Notes |
 | --- | --- | --- |
 | Installer and base stack | ~70% | Web, PHP, database, mail, DNS, FTP, firewall and webmail packages are installed and configured. Tested on Ubuntu 26.04 (amd64) only. |
 | Panel core | ~68% | Sign-in by username with password recovery, admin, reseller and user roles, packages (including default unlimited ones), impersonation, two-factor authentication, profile, server and service control with uptime and logs, hostname and timezone settings, Let's Encrypt for the panel, unique account names. |
-| Hosting features | ~34% | Done: adding and removing domains and subdomains with PHP, web server, HTTPS, DNS zone and mail records set up automatically (about 2 seconds), PHP version and settings per domain, databases and database users, phpMyAdmin with one-click login, HTTP to HTTPS redirect per domain. Not started: mail accounts, FTP accounts, file manager, cron, backups, WordPress tools, statistics. |
+| Hosting features | ~44% | Done: adding and removing domains and subdomains with PHP, web server, HTTPS, DNS zone and mail records set up automatically (about 2 seconds), PHP version and settings per domain, a full DNS zone editor (all common record types, BIND import and export, history with rollback, DNS health checks, DNSSEC, mail provider presets), databases and database users, phpMyAdmin with one-click login, HTTP to HTTPS redirect per domain. Not started: mail accounts, FTP accounts, file manager, cron, backups, WordPress tools, statistics. |
 | Everything else | ~2% | REST API, command line tool, multi-server cluster, account migration, plugins, import from other hosting, billing integration, alerts. |
 
 Not yet tested: Debian, Ubuntu 24.04, arm64, real servers with very little memory in production-like use.

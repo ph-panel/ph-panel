@@ -63,7 +63,7 @@ step_04_packages() {
 
   apt_install_group "security" nftables fail2ban python3-systemd unattended-upgrades
   apt_install_group "web" caddy apache2 libapache2-mod-security2 modsecurity-crs
-  apt_install_group "dns" knot knot-dnsutils unbound unbound-anchor dns-root-data
+  apt_install_group "dns" knot knot-dnssecutils knot-dnsutils unbound unbound-anchor dns-root-data
   apt_install_group "mail" postfix postfix-sqlite dovecot-core dovecot-imapd dovecot-pop3d \
     dovecot-lmtpd dovecot-sieve dovecot-managesieved rspamd redis-server postsrsd
   apt_install_group "databases" mariadb-server mariadb-client
