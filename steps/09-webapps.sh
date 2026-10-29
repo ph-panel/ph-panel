@@ -101,9 +101,23 @@ CONF
   fi
 }
 
+# snappymail_release - newest release tag (from the releases feed) that ships the ready-made zip
+snappymail_release() {
+  local t
+  for t in $(curl -fsSL --max-time 30 https://github.com/the-djmaze/snappymail/releases.atom 2>/dev/null | grep -oE 'releases/tag/v[0-9.]+' | sed 's#releases/tag/##' | head -8); do
+    if curl -fsSLI --max-time 20 -o /dev/null "https://github.com/the-djmaze/snappymail/releases/download/$t/snappymail-${t#v}.zip" 2>/dev/null; then
+      echo "$t"; return 0
+    fi
+  done
+  return 1
+}
+
 install_snappymail() {
-  local tag ver dir=/opt/phpanel/webmail/snappymail
-  tag=$(latest_github_tag the-djmaze/snappymail) || { error "could not determine the SnappyMail version"; return 0; }
+  local tag ver dir=/opt/phpanel/webmail/snappymail latest
+  # the newest release can be a source-only fix without the ready-made archive; use the newest one that has the archive
+  latest=$(latest_github_tag the-djmaze/snappymail) || latest=
+  tag=$(snappymail_release) || { error "could not find a SnappyMail release with an archive"; return 0; }
+  [[ -z $latest || $latest == "$tag" ]] || warn "SnappyMail $latest has no ready-made archive yet; using $tag"
   ver=${tag#v}
   if [[ -f $dir/.phpanel-version && $(cat "$dir/.phpanel-version") == "$ver" ]]; then ok "SnappyMail $ver already installed"; else
     fetch_archive "https://github.com/the-djmaze/snappymail/releases/download/$tag/snappymail-$ver.zip" "$dir" \
