@@ -20,6 +20,7 @@ Usage: sudo bash phpanel-install.sh [options]
   --join IP               after the installation, join the cluster of the server at IP [48] (needs --token)
   --token TOKEN           the join token made on that server (Admin, DNS, Cluster, or: phpanel-web cluster token)
   --join-port N           the panel port of that server (default 8443)
+  --role R                full (default) or dns-only: a name server with the panel only, secondary for the zones of the cluster [48]
   --no-panel              install only the stack, without the panel daemon
   --only STEPS            run only the given steps (e.g. 03,04)
   --force                 also re-run steps that already completed
@@ -28,7 +29,7 @@ Usage: sudo bash phpanel-install.sh [options]
 EOF
 }
 
-OPT_HOSTNAME='' OPT_PUBLIC_IP='' OPT_PROFILE=auto OPT_PHP=auto OPT_ADMIN_EMAIL='' OPT_ADMIN_USERNAME='' OPT_NO_PANEL=0 OPT_ONLY='' OPT_FORCE=0 OPT_JOIN='' OPT_TOKEN='' OPT_JOIN_PORT=''
+OPT_HOSTNAME='' OPT_PUBLIC_IP='' OPT_PROFILE=auto OPT_PHP=auto OPT_ADMIN_EMAIL='' OPT_ADMIN_USERNAME='' OPT_NO_PANEL=0 OPT_ONLY='' OPT_FORCE=0 OPT_JOIN='' OPT_TOKEN='' OPT_JOIN_PORT='' OPT_ROLE=''
 DRY_RUN=0
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -41,6 +42,7 @@ while [[ $# -gt 0 ]]; do
     --join) OPT_JOIN=$2; shift 2 ;;
     --token) OPT_TOKEN=$2; shift 2 ;;
     --join-port) OPT_JOIN_PORT=$2; shift 2 ;;
+    --role) OPT_ROLE=${2,,}; shift 2 ;;
     --no-panel) OPT_NO_PANEL=1; shift ;;
     --only) OPT_ONLY=$2; shift 2 ;;
     --force) OPT_FORCE=1; shift ;;
@@ -49,6 +51,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option: $1" >&2; usage; exit 2 ;;
   esac
 done
+case $OPT_ROLE in ''|full|dns-only) ;; *) echo "--role takes full or dns-only" >&2; exit 2 ;; esac
 export DRY_RUN
 
 . "$INSTALLER_DIR/lib/common.sh"
@@ -89,6 +92,8 @@ printf '%s\n' "${C_BOLD}PH-PANEL installer $PHPANEL_VERSION${C_RESET}  (log: $PH
 _logfile "=== start $PHPANEL_VERSION args: hostname=$OPT_HOSTNAME profile=$OPT_PROFILE php=$OPT_PHP no_panel=$OPT_NO_PANEL dry=$DRY_RUN"
 
 facts_load
+[[ -n $OPT_ROLE ]] && fact_set SERVER_ROLE "$OPT_ROLE" && SERVER_ROLE=$OPT_ROLE
+if dns_only; then info "role: dns-only (name server and panel; no web, mail, database or FTP hosting)"; fi
 for entry in "${STEPS[@]}"; do
   IFS=: read -r num name title <<<"$entry"
   if [[ -n $OPT_ONLY && ",$OPT_ONLY," != *",$num,"* ]]; then continue; fi

@@ -170,7 +170,7 @@ setup_postfix() {
   [[ $DRY_RUN == 1 ]] && { info "[dry-run] configuring Postfix"; return 0; }
   local host; host=$(mail_hostname)
   local f
-  for f in virtual_domains vmailbox valiases vsenders; do [[ -f /etc/postfix/$f ]] || : >/etc/postfix/$f; postmap "/etc/postfix/$f"; done
+  for f in virtual_domains vmailbox valiases vsenders phpanel-hold phpanel-relay; do [[ -f /etc/postfix/$f ]] || : >/etc/postfix/$f; postmap "/etc/postfix/$f"; done
   local cert=/opt/phpanel/ssl/server
   postconf -e \
     "myhostname = $host" \
@@ -188,6 +188,8 @@ setup_postfix() {
     "smtpd_sasl_auth_enable = yes" \
     "smtpd_relay_restrictions = permit_mynetworks, permit_sasl_authenticated, reject_unauth_destination" \
     "virtual_mailbox_domains = hash:/etc/postfix/virtual_domains" \
+    "transport_maps = hash:/etc/postfix/phpanel-hold, hash:/etc/postfix/phpanel-relay" \
+    "relay_domains = hash:/etc/postfix/phpanel-relay" \
     "virtual_mailbox_maps = hash:/etc/postfix/vmailbox" \
     "virtual_alias_maps = hash:/etc/postfix/valiases" \
     "smtpd_sender_login_maps = hash:/etc/postfix/vsenders" \
@@ -280,6 +282,7 @@ CONF
 }
 
 step_08_mail() {
+  if dns_only; then info "dns-only: no mail"; return 0; fi
   ensure_selfsigned /opt/phpanel/ssl/server "$(mail_hostname)" \
     "DNS:$(mail_hostname)${IP_LOCAL:+,IP:$IP_LOCAL}${IP_PUBLIC:+,IP:$IP_PUBLIC}"
   setup_dovecot

@@ -69,11 +69,12 @@ step_11_services() {
     unbound-checkconf >>"$PHPANEL_LOG_FILE" 2>&1 && ok "unbound-checkconf OK" || error "unbound-checkconf failed"
   fi
   resolver_activate
-  mariadb_start
-  local svc
-  for svc in redis-server apache2; do service_check "$svc"; done
-  local v
-  for v in ${PHP_INSTALLED:-}; do service_check "php${v}-fpm"; done
+  local svc v
+  if ! dns_only; then
+    mariadb_start
+    for svc in redis-server apache2; do service_check "$svc"; done
+    for v in ${PHP_INSTALLED:-}; do service_check "php${v}-fpm"; done
+  fi
 
   service_check caddy   # after the php-fpm pools: the webmail/dbadmin groups take effect on restart
   if [[ ${KNOT_OK:-0} == 1 ]]; then
@@ -82,5 +83,6 @@ step_11_services() {
     run systemctl disable --now knot || true
     info "knot: stopped (the configuration is invalid or the IP is missing)"
   fi
-  for svc in rspamd dovecot postsrsd postfix pure-ftpd fail2ban; do service_check "$svc"; done
+  if dns_only; then service_check fail2ban
+  else for svc in rspamd dovecot postsrsd postfix pure-ftpd fail2ban; do service_check "$svc"; done; fi
 }

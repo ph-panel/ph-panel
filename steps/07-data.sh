@@ -178,7 +178,8 @@ setup_ftp() {
 
 setup_fail2ban() {
   [[ -d /etc/fail2ban ]] || return 0
-  write_file /etc/fail2ban/jail.d/00-phpanel.conf <<'CONF'
+  local jails
+  jails=$(cat <<'CONF'
 [DEFAULT]
 backend = systemd
 banaction = nftables
@@ -188,18 +189,26 @@ ignoreip = 127.0.0.1/8 ::1
 [sshd]
 enabled = true
 backend = systemd
-
+CONF
+)
+  if ! dns_only; then
+    jails+=$'\n\n'$(cat <<'CONF'
 [pure-ftpd]
 enabled = true
 backend = systemd
 journalmatch = SYSLOG_IDENTIFIER=pure-ftpd
 CONF
+)
+  fi
+  write_file /etc/fail2ban/jail.d/00-phpanel.conf <<<"$jails"
 }
 
 step_07_data() {
-  setup_mariadb
-  setup_redis
+  if dns_only; then info "dns-only: no MariaDB, Redis or FTP"; else
+    setup_mariadb
+    setup_redis
+  fi
   setup_knot
-  setup_ftp
+  dns_only || setup_ftp
   setup_fail2ban
 }

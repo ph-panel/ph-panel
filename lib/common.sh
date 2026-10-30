@@ -62,6 +62,9 @@ facts_load() {
   esac
 }
 
+# dns_only – true on a server installed with --role dns-only [48]: a name server and the panel, no hosting
+dns_only() { [[ ${SERVER_ROLE:-full} == dns-only ]]; }
+
 # ---------- apt ----------
 
 export DEBIAN_FRONTEND=noninteractive

@@ -792,6 +792,7 @@ CONF
 }
 
 step_09_webapps() {
+  if dns_only; then info "dns-only: no webmail or phpMyAdmin"; return 0; fi
   [[ $DRY_RUN == 1 ]] && { info "[dry-run] installing Roundcube, SnappyMail, phpMyAdmin"; return 0; }
   webapp_php_version || { error "no PHP version installed; skipping the web apps"; return 0; }
   info "php-fpm pools on PHP $WEBAPP_PHP"

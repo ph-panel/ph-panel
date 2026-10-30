@@ -62,13 +62,19 @@ step_04_packages() {
     chrony sudo openssl sqlite3 bind9-dnsutils netcat-openbsd lsof psmisc bubblewrap minisign
 
   apt_install_group "security" nftables fail2ban python3-systemd unattended-upgrades
-  apt_install_group "web" caddy apache2 libapache2-mod-security2 modsecurity-crs
+  if dns_only; then
+    apt_install_group "web" caddy   # only the panel's own address and the ACME answer
+  else
+    apt_install_group "web" caddy apache2 libapache2-mod-security2 modsecurity-crs
+  fi
   apt_install_group "dns" knot knot-dnssecutils knot-dnsutils unbound unbound-anchor dns-root-data
-  apt_install_group "mail" postfix postfix-sqlite dovecot-core dovecot-imapd dovecot-pop3d \
-    dovecot-lmtpd dovecot-sieve dovecot-managesieved rspamd redis-server postsrsd
-  apt_install_group "databases" mariadb-server mariadb-client
-  apt_install_group "ftp" pure-ftpd
-  apt_install_group "statistics" goaccess
+  if ! dns_only; then
+    apt_install_group "mail" postfix postfix-sqlite dovecot-core dovecot-imapd dovecot-pop3d \
+      dovecot-lmtpd dovecot-sieve dovecot-managesieved rspamd redis-server postsrsd
+    apt_install_group "databases" mariadb-server mariadb-client
+    apt_install_group "ftp" pure-ftpd
+    apt_install_group "statistics" goaccess
+  fi
 
   local v e pkgs installed_php=()
   while read -r v; do
@@ -85,14 +91,16 @@ step_04_packages() {
     done
     apt_install_group "php $v" "${pkgs[@]}"
     dpkg -s "php${v}-fpm" >/dev/null 2>&1 && installed_php+=("$v")
-  done < <(php_versions_wanted)
+  done < <(dns_only || php_versions_wanted)   # on a name server the list stays empty: nothing to read, nothing to write to a closed pipe
   fact_set PHP_INSTALLED "${installed_php[*]}"
-  if [[ ${#installed_php[@]} -gt 0 ]]; then ok "PHP installed: ${installed_php[*]}"; else error "no PHP version installed"; fi
+  if dns_only; then info "dns-only: no PHP"
+  elif [[ ${#installed_php[@]} -gt 0 ]]; then ok "PHP installed: ${installed_php[*]}"; else error "no PHP version installed"; fi
 
   install_lego
 
   # spot checks from the specification
-  if have pure-certd || [[ -x /usr/sbin/pure-certd ]]; then
+  if dns_only; then :
+  elif have pure-certd || [[ -x /usr/sbin/pure-certd ]]; then
     ok "pure-certd available: per-domain SNI for FTP [17]"; fact_set FTP_SNI 1
   else
     warn "pure-certd missing: FTP will use the hostname certificate [17]"; fact_set FTP_SNI 0

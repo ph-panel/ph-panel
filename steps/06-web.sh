@@ -144,6 +144,7 @@ CONF
 
 step_06_web() {
   setup_caddy
+  if dns_only; then info "dns-only: no Apache or PHP"; return 0; fi
   setup_apache
   setup_php
 }

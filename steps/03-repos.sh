@@ -57,13 +57,15 @@ step_03_repos() {
   else error "could not download the Knot (CZ.NIC) repo key"; fi
 
   # Rspamd – official repo
-  if fetch_key https://rspamd.com/apt-stable/gpg.key "$KEYRING_DIR/rspamd.gpg" dearmor; then
+  if dns_only; then info "dns-only: no Rspamd repository"
+  elif fetch_key https://rspamd.com/apt-stable/gpg.key "$KEYRING_DIR/rspamd.gpg" dearmor; then
     repo_add rspamd /etc/apt/sources.list.d/rspamd.list \
       "deb [signed-by=$KEYRING_DIR/rspamd.gpg] https://rspamd.com/apt-stable/ $OS_CODENAME main"
   else error "could not download the Rspamd repo key"; fi
 
   # PHP – Ondřej Surý, always from packages.sury.org (Ubuntu and Debian); no PPA.
-  if [[ $DRY_RUN == 1 ]]; then info "[dry-run] repo packages.sury.org"
+  if dns_only; then info "dns-only: no PHP repository"
+  elif [[ $DRY_RUN == 1 ]]; then info "[dry-run] repo packages.sury.org"
   elif curl -fsSL --max-time 30 -o /tmp/debsuryorg-archive-keyring.deb https://packages.sury.org/debsuryorg-archive-keyring.deb \
        && dpkg -i /tmp/debsuryorg-archive-keyring.deb >>"$PHPANEL_LOG_FILE" 2>&1; then
     repo_add php-sury /etc/apt/sources.list.d/php-sury.list \

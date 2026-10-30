@@ -19,6 +19,8 @@ step_12_panel() {
   install -d -m 700 -o phpanel -g phpanel /var/lib/phpanel/migrations
   install -d -m 750 -o root -g phpanel /opt/phpanel/ssl /opt/phpanel/ssl/panel
   install -d -m 750 -o root -g phpanel /etc/phpanel
+  # what this server is for: the panel reads it to hide hosting on a name server [48]
+  printf '%s\n' "${SERVER_ROLE:-full}" >/etc/phpanel/role; chown root:phpanel /etc/phpanel/role; chmod 640 /etc/phpanel/role
   install -d -m 755 /opt/phpanel/lang /opt/phpanel/themes
   # master key for 2FA secrets and trusted-device cookies [18]; created once, never replaced
   if [[ ! -s /etc/phpanel/secret.key ]]; then

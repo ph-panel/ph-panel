@@ -100,15 +100,17 @@ step_01_preflight() {
   fi
 
   # --- outbound port 25 [46] ---
-  local mx open=0
-  for mx in gmail-smtp-in.l.google.com outlook-com.olc.protection.outlook.com; do
-    if timeout 8 bash -c "exec 3<>/dev/tcp/$mx/25" 2>/dev/null; then open=1; break; fi
-  done
-  if (( open )); then
-    ok "outbound port 25 is open"; fact_set PORT25_OUT open
-  else
-    warn "outbound port 25 appears to be blocked by the provider: the server will not be able to send mail directly (see SMTP relay [46])"
-    fact_set PORT25_OUT blocked
+  if dns_only; then info "dns-only: no outbound port 25 check"; else
+    local mx open=0
+    for mx in gmail-smtp-in.l.google.com outlook-com.olc.protection.outlook.com; do
+      if timeout 8 bash -c "exec 3<>/dev/tcp/$mx/25" 2>/dev/null; then open=1; break; fi
+    done
+    if (( open )); then
+      ok "outbound port 25 is open"; fact_set PORT25_OUT open
+    else
+      warn "outbound port 25 appears to be blocked by the provider: the server will not be able to send mail directly (see SMTP relay [46])"
+      fact_set PORT25_OUT blocked
+    fi
   fi
 
   # --- preinstalled iptables rules (e.g. Oracle Cloud) [46] ---
