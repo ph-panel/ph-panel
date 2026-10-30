@@ -17,6 +17,9 @@ Usage: sudo bash phpanel-install.sh [options]
   --php LIST              auto|all|8.4,7.4,... (default: based on profile)
   --admin-email EMAIL     the first administrator's recovery email (used only to reset the password)
   --admin-username NAME   the administrator's sign-in name and server account name (default: admin plus four random digits, e.g. admin3738)
+  --join IP               after the installation, join the cluster of the server at IP [48] (needs --token)
+  --token TOKEN           the join token made on that server (Admin, DNS, Cluster, or: phpanel-web cluster token)
+  --join-port N           the panel port of that server (default 8443)
   --no-panel              install only the stack, without the panel daemon
   --only STEPS            run only the given steps (e.g. 03,04)
   --force                 also re-run steps that already completed
@@ -25,7 +28,7 @@ Usage: sudo bash phpanel-install.sh [options]
 EOF
 }
 
-OPT_HOSTNAME='' OPT_PUBLIC_IP='' OPT_PROFILE=auto OPT_PHP=auto OPT_ADMIN_EMAIL='' OPT_ADMIN_USERNAME='' OPT_NO_PANEL=0 OPT_ONLY='' OPT_FORCE=0
+OPT_HOSTNAME='' OPT_PUBLIC_IP='' OPT_PROFILE=auto OPT_PHP=auto OPT_ADMIN_EMAIL='' OPT_ADMIN_USERNAME='' OPT_NO_PANEL=0 OPT_ONLY='' OPT_FORCE=0 OPT_JOIN='' OPT_TOKEN='' OPT_JOIN_PORT=''
 DRY_RUN=0
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -35,6 +38,9 @@ while [[ $# -gt 0 ]]; do
     --php) OPT_PHP=$2; shift 2 ;;
     --admin-email) OPT_ADMIN_EMAIL=$2; shift 2 ;;
     --admin-username) OPT_ADMIN_USERNAME=${2,,}; shift 2 ;;
+    --join) OPT_JOIN=$2; shift 2 ;;
+    --token) OPT_TOKEN=$2; shift 2 ;;
+    --join-port) OPT_JOIN_PORT=$2; shift 2 ;;
     --no-panel) OPT_NO_PANEL=1; shift ;;
     --only) OPT_ONLY=$2; shift 2 ;;
     --force) OPT_FORCE=1; shift ;;
@@ -97,6 +103,22 @@ for entry in "${STEPS[@]}"; do
   mark_done "$CURRENT_STEP"
 done
 CURRENT_STEP=final
+
+# join_cluster – --join IP --token T: the server becomes a member of the cluster of another one [48]; a failure is reported, not fatal
+join_cluster() {
+  [[ -n $OPT_TOKEN ]] || { warn "--join needs --token: the server was not added to the cluster"; return 0; }
+  [[ -x /opt/phpanel/phpanel-web ]] || { warn "the panel is not installed, so the server cannot join the cluster"; return 0; }
+  [[ $OPT_JOIN =~ ^[0-9A-Fa-f:.]+$ ]] || { warn "--join takes the IP address of a server of the cluster"; return 0; }
+  local out args=(cluster join "$OPT_JOIN" --token "$OPT_TOKEN")
+  [[ -n $OPT_JOIN_PORT ]] && args+=(--port "$OPT_JOIN_PORT")
+  info "joining the cluster of $OPT_JOIN"
+  if out=$(/opt/phpanel/phpanel-web "${args[@]}" 2>&1); then
+    ok "joined the cluster of $OPT_JOIN"
+  else
+    warn "could not join the cluster of $OPT_JOIN: ${out##*$'\n'}"
+  fi
+}
+if [[ -n $OPT_JOIN && $DRY_RUN != 1 && $OPT_NO_PANEL == 0 ]]; then join_cluster; fi
 
 # ---------- summary ----------
 printf '\n%s\n' "${C_BOLD}Summary${C_RESET}"
