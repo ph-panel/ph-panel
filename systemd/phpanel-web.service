@@ -30,7 +30,7 @@ ProtectControlGroups=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
-ReadWritePaths=/opt/phpanel/data /opt/phpanel/logs
+ReadWritePaths=/opt/phpanel/data /opt/phpanel/logs /var/lib/phpanel/migrations
 ReadOnlyPaths=/opt/phpanel/ssl
 MemoryMax=128M
 

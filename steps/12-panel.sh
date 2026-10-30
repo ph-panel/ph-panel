@@ -15,6 +15,8 @@ step_12_panel() {
   getent group phpanel-pma >/dev/null || groupadd --system phpanel-pma   # owns the phpMyAdmin sign-on socket
   install -d -m 755 /opt/phpanel
   install -d -m 750 -o phpanel -g phpanel /opt/phpanel/data /opt/phpanel/logs
+  # where an account move keeps its archive [49]; the panel streams it to the other server, so its unit may write here
+  install -d -m 700 -o phpanel -g phpanel /var/lib/phpanel/migrations
   install -d -m 750 -o root -g phpanel /opt/phpanel/ssl /opt/phpanel/ssl/panel
   install -d -m 750 -o root -g phpanel /etc/phpanel
   install -d -m 755 /opt/phpanel/lang /opt/phpanel/themes
