@@ -124,20 +124,51 @@ setup_ftp() {
   [[ -d /etc/pure-ftpd ]] || { info "pure-ftpd not installed, skipping"; return 0; }
   [[ $DRY_RUN == 1 ]] && { info "[dry-run] configuring Pure-FTPd"; return 0; }
   local c=/etc/pure-ftpd/conf
-  install -d "$c"
-  printf '%s\n' "30000 31000" >"$c/PassivePortRange"
+  install -d "$c" /etc/pure-ftpd/auth
+  install -d -m 700 /opt/phpanel/ftp
+  # Accounts are virtual: the panel writes /etc/pure-ftpd/pureftpd.passwd and builds the database from it. Nothing
+  # authenticates against the system's own users (no PAM, no passwd file), and a real chroot is used, because the
+  # virtual-chroot build lets a symbolic link inside the home point outside of it.
+  rm -f /etc/pure-ftpd/auth/65unix /etc/pure-ftpd/auth/70pam
+  ln -sfn ../conf/PureDB /etc/pure-ftpd/auth/50pure
+  printf '%s\n' no >"$c/PAMAuthentication"; printf '%s\n' no >"$c/UnixAuthentication"
+  printf '%s\n' /etc/pure-ftpd/pureftpd.pdb >"$c/PureDB"
   printf '%s\n' yes >"$c/ChrootEveryone"; printf '%s\n' yes >"$c/NoAnonymous"; printf '%s\n' yes >"$c/DontResolve"
-  printf '%s\n' 2 >"$c/TLS"            # TLS mandatory [17]
-  printf '%s\n' 1000 >"$c/MinUID"
-  printf '%s\n' 8 >"$c/MaxClientsPerIP"
+  printf '%s\n' 1000 >"$c/MinUID"                     # system accounts never sign in
+  printf '%s\n' '133 022' >"$c/Umask"                  # files 644, folders 755: nothing is created world-writable
+  printf '%s\n' yes >"$c/AllowDotFiles"                # .htaccess and friends
+  printf '%s\n' yes >"$c/CustomerProof"                # stops clients from making their own files unreadable
+  printf '%s\n' HIGH >"$c/TLSCipherSuite"
+  printf '%s\n' 'clf:/var/log/pure-ftpd/transfer.log' >"$c/AltLog"
+  # the debconf answer only matters on a first install: set the real-chroot build on every run
+  if [[ -f /etc/default/pure-ftpd-common ]]; then
+    if grep -q '^VIRTUALCHROOT=' /etc/default/pure-ftpd-common; then
+      sed -i 's/^VIRTUALCHROOT=.*/VIRTUALCHROOT=false/' /etc/default/pure-ftpd-common
+    else
+      printf '%s\n' 'VIRTUALCHROOT=false' >>/etc/default/pure-ftpd-common
+    fi
+  fi
+  # limits an administrator can change in the panel are only written while the panel has not saved its own
+  if [[ ! -s /opt/phpanel/ftp-settings.json ]]; then
+    printf '%s\n' "30000 31000" >"$c/PassivePortRange"
+    printf '%s\n' "$(pick 20 30 50 100)" >"$c/MaxClientsNumber"
+    printf '%s\n' 8 >"$c/MaxClientsPerIP"
+    printf '%s\n' 15 >"$c/MaxIdleTime"
+    printf '%s\n' "5 5" >"$c/PerUserLimits"
+    printf '%s\n' 2 >"$c/TLS"                          # TLS mandatory [17]
+  fi
   if [[ ${NAT_MODE:-0} == 1 && -n ${IP_PUBLIC:-} ]]; then printf '%s\n' "$IP_PUBLIC" >"$c/ForcePassiveIP"; else rm -f "$c/ForcePassiveIP"; fi
-  # temporary hostname certificate; cert-sync replaces it later [14]
+  # the account list starts empty; the panel owns the file from now on
+  [[ -f /etc/pure-ftpd/pureftpd.passwd ]] || { : >/etc/pure-ftpd/pureftpd.passwd; }
+  chmod 600 /etc/pure-ftpd/pureftpd.passwd
+  pure-pw mkdb /etc/pure-ftpd/pureftpd.pdb -f /etc/pure-ftpd/pureftpd.passwd >>"$PHPANEL_LOG_FILE" 2>&1 || warn "could not build the FTP account database"
+  # temporary hostname certificate; the Let's Encrypt step replaces it with the real one [14]
   local pem=/etc/ssl/private/pure-ftpd.pem
   if [[ ! -s $pem ]]; then
     openssl req -x509 -nodes -newkey rsa:2048 -days 397 -subj "/CN=${PANEL_HOSTNAME:-$(hostname -f 2>/dev/null || hostname)}" \
       -keyout "$pem" -out "$pem" >>"$PHPANEL_LOG_FILE" 2>&1 && chmod 600 "$pem" || warn "could not generate the Pure-FTPd certificate"
   fi
-  info "explicit FTPS on 21; implicit FTPS on 990 requires a second instance (not handled yet)"
+  info "explicit FTPS on 21 with TLS required; implicit FTPS (990) is not offered: Pure-FTPd cannot serve it"
 }
 
 setup_fail2ban() {

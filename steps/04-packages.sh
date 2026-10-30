@@ -25,7 +25,7 @@ preseed_debconf() {
   debconf-set-selections <<EOF
 postfix postfix/main_mailer_type select Internet Site
 postfix postfix/mailname string $mailname
-pure-ftpd pure-ftpd/virtualchroot boolean true
+pure-ftpd pure-ftpd/virtualchroot boolean false
 pure-ftpd pure-ftpd/standalone-or-inetd select standalone
 EOF
   echo "$mailname" >/etc/mailname

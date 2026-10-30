@@ -95,7 +95,7 @@ install_roundcube() {
 \$config['log_dir'] = '$data/roundcube-logs/';
 \$config['temp_dir'] = '/opt/phpanel/webmail/tmp/';
 \$config['product_name'] = 'Webmail';
-\$config['plugins'] = ['ph_sso', 'managesieve', 'markasjunk'];
+\$config['plugins'] = ['ph_sso', 'password', 'managesieve', 'markasjunk'];
 \$config['managesieve_host'] = 'localhost';
 \$config['managesieve_port'] = 4190;
 \$config['managesieve_auth_type'] = 'PLAIN';
@@ -178,27 +178,19 @@ function ph_master_secret(): string {
     return $s;
 }
 
-/** Answer of the panel for a token: ['ok' => true, 'email' => ..., 'client' => ...] or null. */
-function ph_redeem(string $token): ?array {
-    if (!preg_match('/^[A-Za-z0-9_-]{43}$/', $token)) {
-        return null;
-    }
+/** One JSON call to the panel's local socket: ['code' => HTTP status, 'json' => decoded answer] or null. */
+function ph_call(string $path, array $payload): ?array {
     $fp = @stream_socket_client('unix://' . PH_SOCKET, $en, $es, 3);
     if (!$fp) {
         return null;
     }
-    stream_set_timeout($fp, 5);
-    $body = json_encode([
-        'token' => $token,
-        'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
-        'ua' => $_SERVER['HTTP_USER_AGENT'] ?? '',
-        'host' => strtolower(preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST'] ?? '')),
-    ]);
-    fwrite($fp, "POST /webmail/redeem HTTP/1.1\r\nHost: panel\r\nContent-Type: application/json\r\nContent-Length: " . strlen($body) . "\r\nConnection: close\r\n\r\n" . $body);
+    stream_set_timeout($fp, 15);
+    $body = json_encode($payload);
+    fwrite($fp, "POST $path HTTP/1.1\r\nHost: panel\r\nContent-Type: application/json\r\nContent-Length: " . strlen($body) . "\r\nConnection: close\r\n\r\n" . $body);
     $resp = stream_get_contents($fp);
     fclose($fp);
     $parts = explode("\r\n\r\n", (string) $resp, 2);
-    if (count($parts) !== 2 || !preg_match('#^HTTP/1\.[01] 200#', $parts[0])) {
+    if (count($parts) !== 2 || !preg_match('#^HTTP/1\.[01] (\d{3})#', $parts[0], $m)) {
         return null;
     }
     $payload = $parts[1];
@@ -215,7 +207,22 @@ function ph_redeem(string $token): ?array {
         $payload = $out;
     }
     $j = json_decode($payload, true);
-    return (is_array($j) && !empty($j['ok']) && !empty($j['email'])) ? $j : null;
+    return ['code' => (int) $m[1], 'json' => is_array($j) ? $j : []];
+}
+
+/** Answer of the panel for a token: ['ok' => true, 'email' => ..., 'client' => ...] or null. */
+function ph_redeem(string $token): ?array {
+    if (!preg_match('/^[A-Za-z0-9_-]{43}$/', $token)) {
+        return null;
+    }
+    $r = ph_call('/webmail/redeem', [
+        'token' => $token,
+        'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+        'ua' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+        'host' => strtolower(preg_replace('/:\d+$/', '', $_SERVER['HTTP_HOST'] ?? '')),
+    ]);
+    $j = $r['json'] ?? [];
+    return ($r && $r['code'] === 200 && !empty($j['ok']) && !empty($j['email'])) ? $j : null;
 }
 
 /** Remembers the client in a cookie so Caddy sends later requests to the same one. */
@@ -295,8 +302,15 @@ class ph_sso extends rcube_plugin
 
     public function smtp_connect($args)
     {
-        if ($this->is_master($args['smtp_pass'] ?? null)) {
-            $args['smtp_user'] = $args['smtp_user'] . '*' . PH_MASTER_USER;
+        // Roundcube hands this hook the templates "%u" and "%p", not the values, so the password comes from the session
+        $pass = $args['smtp_pass'] ?? null;
+        if ($pass === '%p') {
+            $pass = $this->email !== null ? ph_master_secret()
+                : (!empty($_SESSION['password']) ? rcmail::get_instance()->decrypt($_SESSION['password']) : null);
+        }
+        if ($this->is_master($pass)) {
+            $user = rcmail::get_instance()->get_user_name();
+            $args['smtp_user'] = str_replace('%u', (string) $user, $args['smtp_user']) . '*' . PH_MASTER_USER;
         }
         return $args;
     }
@@ -370,9 +384,23 @@ class PhMasterPlugin extends \RainLoop\Plugins\AbstractPlugin
         return $s !== '' && hash_equals($s, (string) $account->ImapPass());
     }
 
+    // The master user is accepted only from 127.0.0.1, and only with the full address in front of it. Whatever domain
+    // file SnappyMail would pick for the address (it writes some of its own, with "localhost" and short logins), the
+    // panel's sign-in always talks to this machine over IPv4 and never shortens the address.
+    private function local($settings, int $port, int $type): void
+    {
+        $settings->host = '127.0.0.1';
+        $settings->port = $port;
+        $settings->type = $type;
+        $settings->shortLogin = false;
+        $settings->lowerLogin = true;
+        $settings->stripLogin = '';
+    }
+
     public function imapBefore($account, $client, $settings): void
     {
         if ($this->isMaster($account)) {
+            $this->local($settings, 143, 0);
             $settings->username = $account->Email() . '*' . PH_MASTER_USER;
         }
     }
@@ -380,6 +408,7 @@ class PhMasterPlugin extends \RainLoop\Plugins\AbstractPlugin
     public function smtpBefore($account, $client, $settings): void
     {
         if ($this->isMaster($account)) {
+            $this->local($settings, 587, 2);
             $settings->username = $account->Email() . '*' . PH_MASTER_USER;
         }
     }
@@ -416,6 +445,57 @@ PHP
 }
 JSON
   chown webmail:webmail "$dom/default.json"
+  # SnappyMail writes domain files of its own on its first start (the server's own name and some public providers) with
+  # "localhost" and short logins. A file named after a hosted domain would override default.json for its mailboxes and
+  # sign-in and password logins would fail, so only default.json stays.
+  find "$dom" -maxdepth 1 -type f -name '*.json' ! -name default.json -delete 2>/dev/null || true
+  # Roundcube: change the mailbox password from Settings -> Password. The panel owns the passwords, so the driver asks it over the
+  # local socket; the panel checks the current password itself (the session was opened without it, so the plug-in's own check is off).
+  write_file "$wm/roundcube/plugins/password/drivers/phpanel.php" 640 <<'PHP'
+<?php
+// PH-PANEL: password driver of Roundcube's password plug-in; the panel changes the mailbox password [25].
+require_once '/opt/phpanel/webmail/ph-redeem.php';
+
+class rcube_phpanel_password
+{
+    // the current password is verified by the panel, because the session itself was opened with the panel's master secret
+    public function compare($curpwd, $newpwd, $type)
+    {
+        $rc = rcmail::get_instance();
+        if ($type === PASSWORD_COMPARE_NEW && $curpwd === $newpwd) {
+            return $rc->gettext(['name' => 'samepasswd', 'domain' => 'password']);
+        }
+        return null;
+    }
+
+    public function save($currpass, $newpass, $username)
+    {
+        $r = ph_call('/webmail/passwd', [
+            'email' => $username,
+            'current' => $currpass,
+            'new' => $newpass,
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+        ]);
+        if (!$r) {
+            return PASSWORD_CONNECT_ERROR;
+        }
+        if ($r['code'] === 200 && !empty($r['json']['ok'])) {
+            return PASSWORD_SUCCESS;
+        }
+        $msg = is_string($r['json']['error'] ?? null) ? $r['json']['error'] : '';
+        return ['code' => ($r['code'] >= 500 ? PASSWORD_ERROR : PASSWORD_CONSTRAINT_VIOLATION), 'message' => $msg];
+    }
+}
+PHP
+  write_file "$wm/roundcube/plugins/password/config.inc.php" 640 <<'PHP'
+<?php
+// Generated by PH-PANEL [25]
+$config['password_driver'] = 'phpanel';
+$config['password_confirm_current'] = true;
+$config['password_minimum_length'] = 10;
+$config['password_force_new_user'] = false;
+PHP
+  chgrp webmail "$wm/roundcube/plugins/password/config.inc.php" "$wm/roundcube/plugins/password/drivers/phpanel.php"
   # the web pool user reads these through its group
   chgrp webmail "$wm/ph-redeem.php" "$wm/snappymail/ph-sso.php"; chmod 640 "$wm/ph-redeem.php" "$wm/snappymail/ph-sso.php"
   chgrp -R webmail "$wm/roundcube/plugins/ph_sso"; chmod 750 "$wm/roundcube/plugins/ph_sso"; chmod 640 "$wm/roundcube/plugins/ph_sso/ph_sso.php"

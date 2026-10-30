@@ -71,6 +71,10 @@ CONF
     say "Caddy rejected the hostname site, put the previous one back: $(tail -2 <<<"$cv" | tr '\n' ' ')"
   fi
 fi
+# Pure-FTPd reads one file holding the certificate chain and the key
+if [[ -d /etc/pure-ftpd ]]; then
+  ( umask 077; cat "$crt" "$key" >/etc/ssl/private/pure-ftpd.pem.new ) && mv -f /etc/ssl/private/pure-ftpd.pem.new /etc/ssl/private/pure-ftpd.pem
+fi
 for svc in postfix dovecot pure-ftpd caddy; do systemctl reload "$svc" 2>/dev/null || systemctl restart "$svc" 2>/dev/null || true; done
 say "certificate for $host installed (${action[0]})"
 exit 0
