@@ -52,6 +52,16 @@ pm.max_children = $(pick 3 5 10 20)
 pm.process_idle_timeout = 10s
 php_admin_value[open_basedir] = /opt/phpanel/$name:/opt/phpanel/webmail:/opt/phpanel/dbadmin:/tmp:/usr/share/php$([[ $name == webmail ]] && echo ':/etc/phpanel/webmail-master.secret')
 php_admin_value[upload_tmp_dir] = /opt/phpanel/$name/tmp
+$([[ $name == webmail ]] && cat <<'WEB'
+; webmail may share the address of a customer's site (https://<domain>/webmail/): its cookies stay under /webmail,
+; are sent only over HTTPS, hidden from scripts, and not sent with cross-site sub-requests. Lax, not Strict, because
+; the sign-in from the panel arrives as a cross-site navigation and Roundcube answers it with a redirect.
+php_admin_value[session.cookie_path] = /webmail
+php_admin_value[session.cookie_secure] = 1
+php_admin_value[session.cookie_httponly] = 1
+php_admin_value[session.cookie_samesite] = Lax
+WEB
+)
 CONF
   install -d -o "$user" -g "$user" -m 750 "/opt/phpanel/$name/tmp"
   usermod -aG "$user" caddy 2>/dev/null || true   # Caddy reads the application's static files
