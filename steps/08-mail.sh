@@ -244,6 +244,8 @@ CONF
 path = "/var/lib/rspamd/dkim/$domain.$selector.key";
 selector = "default";
 use_domain = "header";
+# the key of a domain is named after the domain itself, also when it is a subdomain (demo.example.com, not example.com)
+use_esld = false;
 allow_username_mismatch = true;
 sign_authenticated = true;
 sign_local = true;
