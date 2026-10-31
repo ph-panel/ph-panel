@@ -236,6 +236,9 @@ setup_rspamd() {
   have rspamd || { info "rspamd not installed, skipping"; return 0; }
   [[ $DRY_RUN == 1 ]] && { info "[dry-run] configuring Rspamd"; return 0; }
   install -d -o _rspamd -g _rspamd -m 750 /var/lib/rspamd/dkim 2>/dev/null || install -d -m 750 /var/lib/rspamd/dkim
+  # a running Rspamd keeps the configuration it started with; remember what it had to tell whether it must read it again
+  local before after
+  before=$(cat /etc/rspamd/local.d/* 2>/dev/null | sha256sum)
   write_file /etc/rspamd/local.d/redis.conf <<'CONF'
 servers = "127.0.0.1:6379";
 CONF
@@ -280,7 +283,14 @@ CONF
     printf 'rspamd_controller_password=%s\n' "$pw" >/root/.phpanel/rspamd.txt; chmod 600 /root/.phpanel/rspamd.txt
     printf 'bind_socket = "127.0.0.1:11334";\npassword = "%s";\n' "$hash" >/etc/rspamd/local.d/worker-controller.inc
   fi
-  if rspamadm configtest >>"$PHPANEL_LOG_FILE" 2>&1; then ok "rspamadm configtest OK"; else error "rspamadm configtest failed (see $PHPANEL_LOG_FILE)"; fi
+  if rspamadm configtest >>"$PHPANEL_LOG_FILE" 2>&1; then
+    ok "rspamadm configtest OK"
+    after=$(cat /etc/rspamd/local.d/* 2>/dev/null | sha256sum)
+    # without this, a changed rule (for example how DKIM keys are found) only applied after the next restart of Rspamd
+    if [[ $before != "$after" ]] && systemctl is-active --quiet rspamd; then
+      if systemctl reload rspamd >>"$PHPANEL_LOG_FILE" 2>&1 || systemctl restart rspamd >>"$PHPANEL_LOG_FILE" 2>&1; then ok "Rspamd reads its changed configuration"; else warn "Rspamd could not be reloaded (see $PHPANEL_LOG_FILE)"; fi
+    fi
+  else error "rspamadm configtest failed (see $PHPANEL_LOG_FILE)"; fi
 }
 
 step_08_mail() {
