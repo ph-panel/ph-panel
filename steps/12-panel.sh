@@ -29,6 +29,15 @@ step_12_panel() {
   chown phpanel:phpanel /etc/phpanel/secret.key; chmod 600 /etc/phpanel/secret.key
   install -m 755 "$bin" /opt/phpanel/phpanel-web
   install -m 750 -o root -g root "$rootbin" /opt/phpanel/phpanel-root
+  # the file manager worker [24]: phpanel-root starts it as the owner of an account, so it must be executable by everyone;
+  # it holds no privileges and only works inside the home directory it is given
+  local fmbin="$INSTALLER_DIR/bin/phpanel-fm-linux-$ARCH"
+  if [[ -x $fmbin ]]; then
+    install -d -m 755 -o root -g root /usr/local/lib/phpanel
+    install -m 755 -o root -g root "$fmbin" /usr/local/lib/phpanel/phpanel-fm
+  else
+    warn "the file manager worker is missing in $INSTALLER_DIR/bin; the file manager will not work until it is installed"
+  fi
   ln -sf /opt/phpanel/phpanel-web /usr/local/bin/phpanel-web
 
   # certificate: self-signed until the ACME step (lego, [21]); the daemon reloads it by itself when it changes

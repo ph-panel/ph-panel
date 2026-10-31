@@ -791,6 +791,35 @@ CONF
   fi
 }
 
+# ---------- Monaco, the code editor of the file manager [13] [24] ----------
+# MIT-licensed, served by the panel from /opt/phpanel/vendor/monaco; fetched here (pinned version and checksum) so that it is not
+# compiled into the daemon and nothing is loaded from a third-party site when the editor opens.
+MONACO_VERSION=0.52.2
+MONACO_SHA512='sha512-GEQWEZmfkOGLdd3XK8ryrfWz3AIP8YymVXiPHEdewrUq7mh0qrKrfHLNCXcbB6sTnMLnOZ3ztSiKcciFUkIJwQ=='
+install_monaco() {
+  local dir=/opt/phpanel/vendor/monaco
+  if [[ -f $dir/.version && $(cat "$dir/.version") == "$MONACO_VERSION" && -f $dir/vs/loader.js ]]; then ok "Monaco $MONACO_VERSION already installed"; return 0; fi
+  local tmp; tmp=$(mktemp -d)
+  if ! curl -fsSL --retry 3 --connect-timeout 15 -o "$tmp/m.tgz" "https://registry.npmjs.org/monaco-editor/-/monaco-editor-$MONACO_VERSION.tgz"; then
+    warn "could not download the code editor (Monaco); the file manager will use a plain text editor"; rm -rf "$tmp"; return 0
+  fi
+  if [[ "sha512-$(openssl dgst -sha512 -binary "$tmp/m.tgz" | base64 -w0)" != "$MONACO_SHA512" ]]; then
+    warn "the code editor download does not match its checksum and was discarded"; rm -rf "$tmp"; return 0
+  fi
+  rm -rf "$dir.new"; install -d -m 755 "$dir.new"
+  if tar xzf "$tmp/m.tgz" -C "$tmp" package/min/vs package/LICENSE 2>>"$PHPANEL_LOG_FILE"; then
+    mv "$tmp/package/min/vs" "$dir.new/vs"; cp "$tmp/package/LICENSE" "$dir.new/LICENSE"
+    rm -f "$dir.new"/vs/nls.messages.*.js
+    echo "$MONACO_VERSION" >"$dir.new/.version"
+    chown -R root:root "$dir.new"; chmod -R a+rX,go-w "$dir.new"
+    rm -rf "$dir"; mv "$dir.new" "$dir"
+    ok "Monaco $MONACO_VERSION installed for the file manager"
+  else
+    warn "the code editor archive could not be unpacked; the file manager will use a plain text editor"; rm -rf "$dir.new"
+  fi
+  rm -rf "$tmp"
+}
+
 step_09_webapps() {
   if dns_only; then info "dns-only: no webmail or phpMyAdmin"; return 0; fi
   [[ $DRY_RUN == 1 ]] && { info "[dry-run] installing Roundcube, SnappyMail, phpMyAdmin"; return 0; }
@@ -804,6 +833,7 @@ step_09_webapps() {
   install_snappymail
   install_webmail_sso
   install_phpmyadmin
+  install_monaco
   run systemctl restart "php${WEBAPP_PHP}-fpm" || true   # restart, not reload: the pool user has a new group
   setup_webapps_caddy
 }
