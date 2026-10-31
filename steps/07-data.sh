@@ -78,6 +78,12 @@ setup_knot() {
     ( umask 077; printf 'key:\n  - id: phpanel-tsig\n    algorithm: hmac-sha256\n    secret: %s\n' "$(openssl rand -base64 32)" >/etc/knot/tsig.key )
   fi
   chown root:knot /etc/knot/tsig.key; chmod 640 /etc/knot/tsig.key
+  # the key of wildcard certificates [56]: it may only update the _acme-challenge TXT records of a zone (the ACL below)
+  if [[ ! -s /etc/knot/acme.key ]]; then
+    ( umask 077; printf 'key:\n  - id: phpanel-acme\n    algorithm: hmac-sha256\n    secret: %s\n' "$(openssl rand -base64 32)" >/etc/knot/acme.key )
+  fi
+  chown root:knot /etc/knot/acme.key; chmod 640 /etc/knot/acme.key
+  install -d -m 755 /opt/phpanel/caddy/tls /opt/phpanel/caddy/tls/wildcard   # where Caddy reads the wildcard certificates
   local node; node=$(hostname -s | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9\n' '-')
   # zones of hosted domains; created once and then maintained by the panel, never overwritten here
   [[ -f /etc/knot/phpanel-zones.conf ]] || printf '# PH-PANEL zones; maintained by the panel\n' >/etc/knot/phpanel-zones.conf
@@ -95,6 +101,17 @@ server:
     listen: ${IP_LOCAL}@53
 
 include: "/etc/knot/tsig.key"
+include: "/etc/knot/acme.key"
+
+# wildcard certificates [56]: the ACME key may add and remove TXT records named _acme-challenge in a zone, nothing else
+acl:
+  - id: phpanel-acme
+    key: phpanel-acme
+    action: update
+    update-type: [TXT]
+    update-owner: name
+    update-owner-name: [_acme-challenge]
+    update-owner-match: equal
 
 log:
   - target: syslog
