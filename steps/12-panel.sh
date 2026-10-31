@@ -78,6 +78,23 @@ maxretry = 5
 findtime = 15m
 bantime  = 10m
 EOF
+    # the API [23]: 20 refused keys from one address in 15 minutes ban it for an hour (the login jail above is stricter and shorter)
+    cat >/etc/fail2ban/filter.d/phpanel-api.conf <<'EOF'
+[Definition]
+failregex = ^\s*phpanel apiauth failed ip=<HOST>(?:\s|$)
+ignoreregex =
+EOF
+    cat >/etc/fail2ban/jail.d/phpanel-api.conf <<'EOF'
+[phpanel-api]
+enabled  = true
+port     = 8443
+filter   = phpanel-api
+logpath  = /opt/phpanel/logs/auth.log
+backend  = auto
+maxretry = 20
+findtime = 15m
+bantime  = 1h
+EOF
     touch /opt/phpanel/logs/auth.log; chown phpanel:phpanel /opt/phpanel/logs/auth.log; chmod 640 /opt/phpanel/logs/auth.log
     run systemctl restart fail2ban || warn "fail2ban did not restart after adding the phpanel jail"
   fi
