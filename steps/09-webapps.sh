@@ -52,6 +52,8 @@ pm.max_children = $(pick 3 5 10 20)
 pm.process_idle_timeout = 10s
 php_admin_value[open_basedir] = /opt/phpanel/$name:/opt/phpanel/webmail:/opt/phpanel/dbadmin:/tmp:/usr/share/php$([[ $name == webmail ]] && echo ':/etc/phpanel/webmail-master.secret')
 php_admin_value[upload_tmp_dir] = /opt/phpanel/$name/tmp
+$([[ $name == webmail ]] && echo "; the upload limits are in .user.ini files that the panel writes; PHP looks at them again every few seconds
+php_admin_value[user_ini.cache_ttl] = 10")
 $([[ $name == webmail ]] && cat <<'WEB'
 ; webmail may share the address of a customer's site (https://<domain>/webmail/): its cookies stay under /webmail,
 ; are sent only over HTTPS, hidden from scripts, and not sent with cross-site sub-requests. Lax, not Strict, because
@@ -101,6 +103,8 @@ install_roundcube() {
 \$config['managesieve_auth_type'] = 'PLAIN';
 \$config['managesieve_conn_options'] = ['ssl' => ['verify_peer' => false, 'verify_peer_name' => false]];
 \$config['session_name'] = 'phpanel_webmail';
+// the limit for a whole message follows "Largest message" in Admin -> Mail (written by the panel)
+@include '/opt/phpanel/webmail/mail-limits.php';
 CONF
   install -d -o webmail -g webmail -m 750 /opt/phpanel/webmail/tmp
   chown -R root:webmail "$dir"; chmod -R g+rX,o-rwx "$dir"
@@ -414,6 +418,122 @@ class PhMasterPlugin extends \RainLoop\Plugins\AbstractPlugin
     }
 }
 PHP
+
+  # SnappyMail: change the mailbox password from Settings -> Password. The panel owns the passwords, so the plug-in asks it over the
+  # local socket, like the Roundcube driver does; the panel checks the current password itself (the session was opened without it).
+  local pw=$wm/data/snappymail/_data_/_default_/plugins/ph-password
+  install -d -o webmail -g webmail -m 750 "$pw" "$pw/js" "$pw/templates" "$pw/langs"
+  write_file "$pw/index.php" 640 <<'PHP'
+<?php
+// PH-PANEL: change the mailbox password from SnappyMail's settings [25].
+require_once '/opt/phpanel/webmail/ph-redeem.php';
+
+class PhPasswordPlugin extends \RainLoop\Plugins\AbstractPlugin
+{
+    const NAME = 'PH-PANEL password';
+    // SnappyMail caches the compiled template and script under the version: raise it whenever a file of the plug-in changes
+    const VERSION = '1.1';
+    const DESCRIPTION = 'Lets people change the password of their mailbox; the panel checks the current one.';
+
+    public function Init(): void
+    {
+        $this->UseLangs(true);
+        $this->addJs('js/ph-password.js');
+        $this->addTemplate('templates/PhPasswordSettings.html');
+        $this->addJsonHook('PhChangePassword', 'ChangePassword');
+    }
+
+    public function ChangePassword()
+    {
+        $actions = $this->Manager()->Actions();
+        $account = $actions->getAccountFromToken();
+        $current = (string) $this->jsonParam('Current', '');
+        $new = (string) $this->jsonParam('New', '');
+        $r = ph_call('/webmail/passwd', [
+            'email' => $account->Email(),
+            'current' => $current,
+            'new' => $new,
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+        ]);
+        if (!$r) {
+            return $this->jsonResponse(__FUNCTION__, ['ok' => false, 'message' => 'The password cannot be changed right now. Try again in a moment.']);
+        }
+        if ($r['code'] === 200 && !empty($r['json']['ok'])) {
+            // the session keeps working: it now carries the new password instead of the one the panel sign-in used
+            $account->SetPassword(new \SnappyMail\SensitiveString($new));
+            $actions->SetAuthToken($account);
+            return $this->jsonResponse(__FUNCTION__, ['ok' => true, 'message' => '']);
+        }
+        $msg = is_string($r['json']['error'] ?? null) && $r['json']['error'] !== '' ? $r['json']['error'] : 'The password could not be changed.';
+        return $this->jsonResponse(__FUNCTION__, ['ok' => false, 'message' => $msg]);
+    }
+}
+PHP
+  write_file "$pw/langs/en.ini" 640 <<'INI'
+[PLUGIN_PH_PASSWORD]
+TAB_NAME = "Password"
+LABEL_CURRENT = "Current password"
+LABEL_NEW = "New password"
+LABEL_REPEAT = "New password again"
+BUTTON_CHANGE = "Change password"
+DONE = "Your password was changed."
+EMPTY = "Enter your current and your new password."
+MISMATCH = "The two new passwords are not the same."
+INI
+  write_file "$pw/templates/PhPasswordSettings.html" 640 <<'HTML'
+<div class="b-settings-general">
+  <div class="legend" data-i18n="PLUGIN_PH_PASSWORD/TAB_NAME"></div>
+  <div class="alert alert-error" data-bind="visible: error, text: error" style="display:none;max-width:30em"></div>
+  <div class="alert alert-success" data-bind="visible: done, text: done" style="display:none;max-width:30em;background:#e8f5e9;border-color:#a5d6a7;color:#2e7d32"></div>
+  <div class="control-group">
+    <label data-i18n="PLUGIN_PH_PASSWORD/LABEL_CURRENT" style="display:block;margin-bottom:.2em"></label>
+    <input type="password" autocomplete="current-password" data-bind="textInput: current" id="ph-pw-current" style="width:22em;max-width:100%">
+  </div>
+  <div class="control-group">
+    <label data-i18n="PLUGIN_PH_PASSWORD/LABEL_NEW" style="display:block;margin-bottom:.2em"></label>
+    <input type="password" autocomplete="new-password" data-bind="textInput: next" id="ph-pw-new" style="width:22em;max-width:100%">
+  </div>
+  <div class="control-group">
+    <label data-i18n="PLUGIN_PH_PASSWORD/LABEL_REPEAT" style="display:block;margin-bottom:.2em"></label>
+    <input type="password" autocomplete="new-password" data-bind="textInput: repeat" id="ph-pw-repeat" style="width:22em;max-width:100%">
+  </div>
+  <button type="button" class="btn" data-bind="click: change, enable: !busy()" id="ph-pw-button" data-i18n="PLUGIN_PH_PASSWORD/BUTTON_CHANGE"></button>
+</div>
+HTML
+  write_file "$pw/js/ph-password.js" 640 <<'JS'
+(rl => {
+  if (!rl) return;
+  const t = key => rl.i18n('PLUGIN_PH_PASSWORD/' + key);
+  class PhPasswordSettings {
+    constructor() {
+      this.current = ko.observable('');
+      this.next = ko.observable('');
+      this.repeat = ko.observable('');
+      this.error = ko.observable('');
+      this.done = ko.observable('');
+      this.busy = ko.observable(false);
+    }
+    change() {
+      this.error('');
+      this.done('');
+      if (!this.current() || !this.next()) { this.error(t('EMPTY')); return; }
+      if (this.next() !== this.repeat()) { this.error(t('MISMATCH')); return; }
+      this.busy(true);
+      rl.pluginRemoteRequest((iError, data) => {
+        this.busy(false);
+        const r = data && data.Result;
+        if (!iError && r && r.ok) {
+          this.current(''); this.next(''); this.repeat('');
+          this.done(t('DONE'));
+        } else {
+          this.error((r && r.message) || t('EMPTY'));
+        }
+      }, 'PhChangePassword', { Current: this.current(), New: this.next() });
+    }
+  }
+  rl.addSettingsViewModel(PhPasswordSettings, 'PhPasswordSettings', 'PLUGIN_PH_PASSWORD/TAB_NAME', 'password');
+})(window.rl);
+JS
   chown -R webmail:webmail "$wm/data/snappymail"
   local ini=$wm/data/snappymail/_data_/_default_/configs/application.ini
   install -d -o webmail -g webmail -m 750 "$(dirname "$ini")"
@@ -422,7 +542,7 @@ PHP
     runuser -u webmail -- "php$WEBAPP_PHP" -r '$_ENV["SNAPPYMAIL_INCLUDE_AS_API"] = true; include "/opt/phpanel/webmail/snappymail/index.php"; \RainLoop\Api::Actions()->Config()->Save();' >>"$PHPANEL_LOG_FILE" 2>&1 || true
   fi
   if [[ -f $ini ]]; then
-    sed -i '/^\[plugins\]/,/^\[/{s/^enable *=.*/enable = On/;s/^enabled_list *=.*/enabled_list = "ph-master"/}' "$ini"
+    sed -i '/^\[plugins\]/,/^\[/{s/^enable *=.*/enable = On/;s/^enabled_list *=.*/enabled_list = "ph-master,ph-password"/}' "$ini"
   else
     warn "SnappyMail: the default configuration could not be created, the panel sign-in plug-in is not enabled"
   fi
