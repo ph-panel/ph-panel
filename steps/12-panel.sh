@@ -17,6 +17,9 @@ step_12_panel() {
   install -d -m 750 -o phpanel -g phpanel /opt/phpanel/data /opt/phpanel/logs
   # where an account move keeps its archive [49]; the panel streams it to the other server, so its unit may write here
   install -d -m 700 -o phpanel -g phpanel /var/lib/phpanel/migrations
+  # scheduled backups [07] [71]: settings, keys and state are root-only; a restore unpacks into a folder per account that only that account can enter
+  dns_only || install -d -m 700 -o root -g root /opt/phpanel/backup /var/lib/phpanel/restic-cache
+  dns_only || install -d -m 755 -o root -g root /var/lib/phpanel/restore
   install -d -m 750 -o root -g phpanel /opt/phpanel/ssl /opt/phpanel/ssl/panel
   install -d -m 750 -o root -g phpanel /etc/phpanel
   # what this server is for: the panel reads it to hide hosting on a name server [48]
@@ -35,6 +38,7 @@ step_12_panel() {
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 * * * * * root /opt/phpanel/phpanel-root cron-tick
+* * * * * root /opt/phpanel/phpanel-root backup-tick
 CRON
   # the file manager worker [24]: phpanel-root starts it as the owner of an account, so it must be executable by everyone;
   # it holds no privileges and only works inside the home directory it is given
