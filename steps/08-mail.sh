@@ -285,6 +285,11 @@ setup_postfix() {
   local host; host=$(mail_hostname)
   local f
   for f in virtual_domains vmailbox valiases vsenders phpanel-hold phpanel-relay; do [[ -f /etc/postfix/$f ]] || : >/etc/postfix/$f; postmap "/etc/postfix/$f"; done
+  # certificates the accounts installed for their mail host [68]: the panel writes this map (certificate and key files by host name);
+  # postmap -F stores the files themselves in it, so it stays root only
+  [[ -f /etc/postfix/phpanel-sni ]] || : >/etc/postfix/phpanel-sni
+  chmod 600 /etc/postfix/phpanel-sni
+  postmap -F hash:/etc/postfix/phpanel-sni && chmod 600 /etc/postfix/phpanel-sni.db
   # PostSRSd 2.x (Ubuntu 26.04) answers on a socketmap; 1.x (Ubuntu 24.04, Debian 12 and 13) on two TCP ports
   local srs_fwd=socketmap:unix:srs:forward srs_rev=socketmap:unix:srs:reverse
   if [[ ! -f /etc/postsrsd.conf ]]; then srs_fwd=tcp:127.0.0.1:10001; srs_rev=tcp:127.0.0.1:10002; fi
@@ -297,6 +302,7 @@ setup_postfix() {
     "smtpd_tls_cert_file = $cert/fullchain.pem" \
     "smtpd_tls_key_file = $cert/privkey.pem" \
     "smtpd_tls_security_level = may" \
+    "tls_server_sni_maps = hash:/etc/postfix/phpanel-sni" \
     "smtpd_tls_auth_only = yes" \
     "smtpd_tls_protocols = >=TLSv1.2" \
     "smtp_tls_security_level = may" \

@@ -21,6 +21,9 @@ step_12_panel() {
   dns_only || install -d -m 700 -o root -g root /opt/phpanel/backup /var/lib/phpanel/restic-cache
   # web rules of the domains [35]: redirects, password folders (hashes only), alias names and suspended accounts; root only
   dns_only || install -d -m 750 -o root -g root /opt/phpanel/sites
+  # certificates the accounts bought [68]: the files Caddy reads (the key readable by Caddy only) and, root only, the key of a request that waits for its certificate
+  dns_only || install -d -m 755 -o root -g root /opt/phpanel/caddy/tls/custom
+  dns_only || install -d -m 700 -o root -g root /opt/phpanel/ssl/custom
   dns_only || install -d -m 755 -o root -g root /var/lib/phpanel/restore
   install -d -m 750 -o root -g phpanel /opt/phpanel/ssl /opt/phpanel/ssl/panel
   install -d -m 750 -o root -g phpanel /etc/phpanel
