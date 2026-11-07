@@ -19,6 +19,8 @@ step_12_panel() {
   install -d -m 700 -o phpanel -g phpanel /var/lib/phpanel/migrations
   # scheduled backups [07] [71]: settings, keys and state are root-only; a restore unpacks into a folder per account that only that account can enter
   dns_only || install -d -m 700 -o root -g root /opt/phpanel/backup /var/lib/phpanel/restic-cache
+  # web rules of the domains [35]: redirects, password folders (hashes only), alias names and suspended accounts; root only
+  dns_only || install -d -m 750 -o root -g root /opt/phpanel/sites
   dns_only || install -d -m 755 -o root -g root /var/lib/phpanel/restore
   install -d -m 750 -o root -g phpanel /opt/phpanel/ssl /opt/phpanel/ssl/panel
   install -d -m 750 -o root -g phpanel /etc/phpanel
