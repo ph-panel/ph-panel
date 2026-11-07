@@ -29,6 +29,13 @@ step_12_panel() {
   chown phpanel:phpanel /etc/phpanel/secret.key; chmod 600 /etc/phpanel/secret.key
   install -m 755 "$bin" /opt/phpanel/phpanel-web
   install -m 750 -o root -g root "$rootbin" /opt/phpanel/phpanel-root
+  # the cron jobs of the accounts [36]: one cron line runs every job that is due; the jobs themselves live in /var/lib/phpanel/cron
+  dns_only || write_file /etc/cron.d/phpanel-cron 644 <<'CRON'
+# PH-PANEL: runs the due cron jobs of the hosting accounts [36]. Managed by the panel; do not edit.
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+* * * * * root /opt/phpanel/phpanel-root cron-tick
+CRON
   # the file manager worker [24]: phpanel-root starts it as the owner of an account, so it must be executable by everyone;
   # it holds no privileges and only works inside the home directory it is given
   local fmbin="$INSTALLER_DIR/bin/phpanel-fm-linux-$ARCH"
