@@ -45,6 +45,28 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 * * * * * root /opt/phpanel/phpanel-root cron-tick
 * * * * * root /opt/phpanel/phpanel-root backup-tick
 CRON
+  # SSH access of the accounts [66]: the login shell hands the session to the helper through sudo (a rule for the members of the SSH
+  # group only), and the helper puts it in the jail of the account. Nothing here lets an account in: that takes the panel (a key, the
+  # package, the status of the account), which puts an account in the group and gives it this shell.
+  if ! dns_only; then
+    groupadd -f -r phpanel-ssh
+    install -d -m 700 -o root -g root /opt/phpanel/ssh
+    write_file /opt/phpanel/ssh-shell 755 <<'SHELL'
+#!/bin/sh
+# PH-PANEL [66]: the login shell of the hosting accounts that have SSH access. It runs in the account's jail through the helper.
+exec /usr/bin/sudo -n /opt/phpanel/phpanel-root ssh-shell "$@"
+SHELL
+    grep -qx /opt/phpanel/ssh-shell /etc/shells 2>/dev/null || echo /opt/phpanel/ssh-shell >>/etc/shells
+    write_file /etc/sudoers.d/phpanel-ssh 440 <<'SUDO'
+# PH-PANEL [66]: the members of the SSH group may start the login shell of the panel as root, and nothing else.
+Defaults!/opt/phpanel/phpanel-root !use_pty, env_keep += "TERM"
+%phpanel-ssh ALL=(root) NOPASSWD: /opt/phpanel/phpanel-root ssh-shell, /opt/phpanel/phpanel-root ssh-shell -c *
+SUDO
+    if command -v visudo >/dev/null 2>&1 && ! visudo -cf /etc/sudoers.d/phpanel-ssh >/dev/null 2>&1; then
+      warn "[ssh] the sudo rule of the SSH login shell is not valid and was removed; SSH access of the accounts will not work"
+      rm -f /etc/sudoers.d/phpanel-ssh
+    fi
+  fi
   # the file manager worker [24]: phpanel-root starts it as the owner of an account, so it must be executable by everyone;
   # it holds no privileges and only works inside the home directory it is given
   local fmbin="$INSTALLER_DIR/bin/phpanel-fm-linux-$ARCH"

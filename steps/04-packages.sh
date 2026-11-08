@@ -75,6 +75,7 @@ step_04_packages() {
     apt_install_group "ftp" pure-ftpd
     apt_install_group "statistics" goaccess
     apt_install_group "backup" restic openssh-client   # scheduled backups [07] [71]
+    apt_install_group "ssh" openssh-server sudo        # SSH access of the hosting accounts [66]
   fi
 
   local v e pkgs installed_php=()
