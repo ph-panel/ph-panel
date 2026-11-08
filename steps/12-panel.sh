@@ -25,6 +25,8 @@ step_12_panel() {
   dns_only || install -d -m 755 -o root -g root /opt/phpanel/caddy/tls/custom
   dns_only || install -d -m 700 -o root -g root /opt/phpanel/ssl/custom
   dns_only || install -d -m 755 -o root -g root /var/lib/phpanel/restore
+  # the WordPress tools [39] [60]: state, runs, snapshots and the requests of jobs (root only)
+  dns_only || install -d -m 700 -o root -g root /var/lib/phpanel/wp
   install -d -m 750 -o root -g phpanel /opt/phpanel/ssl /opt/phpanel/ssl/panel
   install -d -m 750 -o root -g phpanel /etc/phpanel
   # what this server is for: the panel reads it to hide hosting on a name server [48]
@@ -44,6 +46,7 @@ SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 * * * * * root /opt/phpanel/phpanel-root cron-tick
 * * * * * root /opt/phpanel/phpanel-root backup-tick
+*/5 * * * * root /opt/phpanel/phpanel-root wp-tick
 CRON
   # SSH access of the accounts [66]: the login shell hands the session to the helper through sudo (a rule for the members of the SSH
   # group only), and the helper puts it in the jail of the account. Nothing here lets an account in: that takes the panel (a key, the

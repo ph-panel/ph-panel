@@ -53,6 +53,40 @@ install_lego() {
   rm -rf "$tmp"
 }
 
+# WP-CLI [39] [60]: the distro package when it is recent enough, else the official phar of a pinned version, checked against the SHA-512 that
+# is written here (not against a file that comes from the same place as the phar). Nothing is compiled.
+WPCLI_VERSION=2.12.0
+WPCLI_SHA512=be928f6b8ca1e8dfb9d2f4b75a13aa4aee0896f8a9a0a1c45cd5d2c98605e6172e6d014dda2e27f88c98befc16c040cbb2bd1bfa121510ea5cdf5f6a30fe8832
+WPCLI_FILE=/usr/local/lib/phpanel/wp-cli.phar
+
+install_wpcli() {
+  dns_only && return 0
+  if [[ -f $WPCLI_FILE ]] && { [[ -L $WPCLI_FILE ]] || echo "$WPCLI_SHA512  $WPCLI_FILE" | sha512sum -c --status 2>/dev/null; }; then
+    ok "WP-CLI already installed"; return 0
+  fi
+  [[ $DRY_RUN == 1 ]] && { info "[dry-run] installing WP-CLI"; return 0; }
+  install -d -m 755 /usr/local/lib/phpanel
+  local cand
+  cand=$(apt-cache policy wp-cli 2>/dev/null | awk '/Candidate:/ {print $2}') || true
+  if [[ -n $cand && $cand != "(none)" ]] && dpkg --compare-versions "$cand" ge 2.10; then
+    if apt_install_group "wordpress" wp-cli; then
+      local phar
+      phar=$(dpkg -L wp-cli 2>/dev/null | grep -E '\.phar$' | head -1)
+      if [[ -n $phar && -f $phar ]]; then ln -sf "$phar" "$WPCLI_FILE"; ok "WP-CLI from the distro package ($cand)"; return 0; fi
+    fi
+  fi
+  local tmp
+  tmp=$(mktemp -d)
+  if curl -fsSL --max-time 180 -o "$tmp/wp-cli.phar" "https://github.com/wp-cli/wp-cli/releases/download/v${WPCLI_VERSION}/wp-cli-${WPCLI_VERSION}.phar" \
+     && echo "$WPCLI_SHA512  $tmp/wp-cli.phar" | sha512sum -c --status; then
+    install -m 755 -o root -g root "$tmp/wp-cli.phar" "$WPCLI_FILE"
+    ok "WP-CLI ${WPCLI_VERSION} installed (SHA-512 verified)"
+  else
+    error "downloading or verifying WP-CLI ${WPCLI_VERSION} failed: the WordPress tools will not work until it is installed"
+  fi
+  rm -rf "$tmp"
+}
+
 step_04_packages() {
   services_block
   preseed_debconf
@@ -99,6 +133,7 @@ step_04_packages() {
   elif [[ ${#installed_php[@]} -gt 0 ]]; then ok "PHP installed: ${installed_php[*]}"; else error "no PHP version installed"; fi
 
   install_lego
+  install_wpcli
 
   # spot checks from the specification
   if dns_only; then :
