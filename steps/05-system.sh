@@ -52,21 +52,58 @@ CONF
 }
 
 setup_unattended() {
-  # security only, daily at 03:00 [19]; the full upgrade stays manual
+  # Security updates only, every night at 03:00 [19]. The full upgrade stays manual (Admin -> Updates), and nothing restarts the server by
+  # itself: a restart is the administrator's choice. The origins are written out here instead of trusting the distribution's defaults, and the
+  # distribution's own lists are cleared first, so "-updates" can never come back through a later change of those defaults.
+  local id; id=$(. /etc/os-release 2>/dev/null; echo "${ID:-}")
   write_file /etc/apt/apt.conf.d/20auto-upgrades <<'CONF'
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
 CONF
-  write_file /etc/apt/apt.conf.d/52phpanel-upgrades <<'CONF'
+  case $id in
+    ubuntu)
+      write_file /etc/apt/apt.conf.d/52phpanel-upgrades <<'CONF'
+// PH-PANEL [19]: security updates only, no automatic restart.
+#clear Unattended-Upgrade::Allowed-Origins;
+#clear Unattended-Upgrade::Origins-Pattern;
+Unattended-Upgrade::Allowed-Origins {
+        "${distro_id}:${distro_codename}-security";
+        "${distro_id}ESMApps:${distro_codename}-apps-security";
+        "${distro_id}ESM:${distro_codename}-infra-security";
+};
 Unattended-Upgrade::Automatic-Reboot "false";
-Unattended-Upgrade::Remove-Unused-Dependencies "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "false";
 CONF
+      ;;
+    debian)
+      write_file /etc/apt/apt.conf.d/52phpanel-upgrades <<'CONF'
+// PH-PANEL [19]: security updates only, no automatic restart.
+#clear Unattended-Upgrade::Allowed-Origins;
+#clear Unattended-Upgrade::Origins-Pattern;
+Unattended-Upgrade::Origins-Pattern {
+        "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+        "origin=Debian,codename=${distro_codename},label=Debian-Security";
+};
+Unattended-Upgrade::Automatic-Reboot "false";
+Unattended-Upgrade::Remove-Unused-Dependencies "false";
+CONF
+      ;;
+    *)
+      write_file /etc/apt/apt.conf.d/52phpanel-upgrades <<'CONF'
+// PH-PANEL [19]: no automatic restart.
+Unattended-Upgrade::Automatic-Reboot "false";
+Unattended-Upgrade::Remove-Unused-Dependencies "false";
+CONF
+      ;;
+  esac
   write_file /etc/systemd/system/apt-daily-upgrade.timer.d/phpanel.conf <<'CONF'
 [Timer]
 OnCalendar=
 OnCalendar=*-*-* 03:00
 RandomizedDelaySec=0
 CONF
+  run systemctl daemon-reload || true
+  run systemctl enable --now apt-daily.timer apt-daily-upgrade.timer || warn "the timers of the automatic security updates could not be enabled"
 }
 
 setup_quota() {

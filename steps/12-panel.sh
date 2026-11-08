@@ -144,7 +144,15 @@ EOF
   local email=${OPT_ADMIN_EMAIL:-admin@${PANEL_HOSTNAME:-phpanel.local}} out pw uname
   local create=(admin create --data /opt/phpanel/data --email "$email")
   [[ -n ${OPT_ADMIN_USERNAME:-} ]] && create+=(--username "$OPT_ADMIN_USERNAME")
-  if out=$(runuser -u phpanel -- /opt/phpanel/phpanel-web "${create[@]}" 2>&1); then
+  # a server that has its administrator keeps it: running this step again (for example to install new binaries) must not try to make another
+  local have_admin=0
+  if [[ -f /opt/phpanel/data/panel.db ]] && have sqlite3 \
+     && [[ $(sqlite3 /opt/phpanel/data/panel.db "select count(*) from users where role='admin'" 2>/dev/null || echo 0) -gt 0 ]]; then
+    have_admin=1
+  fi
+  if (( have_admin )) && [[ -z ${OPT_ADMIN_EMAIL:-} && -z ${OPT_ADMIN_USERNAME:-} ]]; then
+    ok "the administrator already exists; left unchanged"
+  elif out=$(runuser -u phpanel -- /opt/phpanel/phpanel-web "${create[@]}" 2>&1); then
     pw=$(awk '/^Password:/ {print $2}' <<<"$out")
     uname=$(sed -n 's/.*Username: \([a-z0-9]*\) .*/\1/p' <<<"$out" | head -1)
     install -d -m 700 /root/.phpanel
@@ -154,8 +162,8 @@ EOF
     ok "administrator created: username $uname, recovery email $email (details in /root/.phpanel/admin-initial.txt)"
   elif [[ $out == *"--username"* ]]; then
     error "the administrator was not created: ${out#error: }"
-  elif [[ $out == *"UNIQUE"* ]]; then
-    info "the administrator $email already exists; left unchanged"
+  elif [[ $out == *"UNIQUE"* || $out == *"already used by another account"* ]]; then
+    ok "the administrator $email already exists; left unchanged"
   else
     info "the administrator could not be created: $out"
   fi
