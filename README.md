@@ -57,7 +57,7 @@ Running the installer again is safe: finished steps are skipped (`--force --only
 
 Caddy and Apache (with ModSecurity and OWASP CRS), PHP 5.6 to 8.6 from packages.sury.org,
 MariaDB, Postfix, Dovecot, Rspamd, Knot DNS with Unbound, Pure-FTPd, Redis, Fail2Ban with an
-nftables firewall, Roundcube, SnappyMail and phpMyAdmin. Nothing is compiled on the server.
+nftables firewall, Roundcube, SnappyMail and phpMyAdmin.
 
 ## License
 
