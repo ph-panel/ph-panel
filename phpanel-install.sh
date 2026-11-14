@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 INSTALLER_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-PHPANEL_VERSION=$(cat "$INSTALLER_DIR/VERSION" 2>/dev/null || echo 0.1.0-dev)
+PHPANEL_VERSION=$(cat "$INSTALLER_DIR/VERSION" 2>/dev/null || echo 0.1.0-alpha.1)
 
 usage() {
   cat <<EOF
