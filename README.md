@@ -22,18 +22,20 @@ Everything listed here is built and passes its automated tests.
 
 ## Install
 
-On a clean server (Ubuntu 26.04 / 24.04 or Debian 12 / 13, amd64), as root, download the installer, check its signature with the release key and run it, as one line (get `minisign` from your distribution's package first):
+On a clean server (Ubuntu 26.04 / 24.04 or Debian 12 / 13, amd64), as root, install minisign and curl, download the installer, check its signature with the release key and run it, as one line:
 
 ```bash
-curl -fsSLO https://ph-panel.com/install.sh -O https://ph-panel.com/install.sh.minisig && minisign -Vm install.sh -P RWTdQ3rZTJw2cM8M2JeDTYHgcq/w0O7lbUXKbKHg/cNgavBfGoM25NZu && sudo bash install.sh
+apt-get update && apt-get install -y minisign curl && curl -fsSLO https://ph-panel.com/install.sh -O https://ph-panel.com/install.sh.minisig && minisign -Vm install.sh -P RWTdQ3rZTJw2cM8M2JeDTYHgcq/w0O7lbUXKbKHg/cNgavBfGoM25NZu && bash install.sh
 ```
+
+Run it as root (on Ubuntu, `sudo -i` first). The first part installs minisign and curl, which check and download the installer.
 
 Release key: id `70369C4CD97A43DD`, public key `RWTdQ3rZTJw2cM8M2JeDTYHgcq/w0O7lbUXKbKHg/cNgavBfGoM25NZu` (also published at https://ph-panel.com/minisign.pub).
 
 Optional flags go after the script name, for example a hostname with automatic certificate:
 
 ```bash
-curl -fsSLO https://ph-panel.com/install.sh -O https://ph-panel.com/install.sh.minisig && minisign -Vm install.sh -P RWTdQ3rZTJw2cM8M2JeDTYHgcq/w0O7lbUXKbKHg/cNgavBfGoM25NZu && sudo bash install.sh --hostname panel.example.com
+apt-get update && apt-get install -y minisign curl && curl -fsSLO https://ph-panel.com/install.sh -O https://ph-panel.com/install.sh.minisig && minisign -Vm install.sh -P RWTdQ3rZTJw2cM8M2JeDTYHgcq/w0O7lbUXKbKHg/cNgavBfGoM25NZu && bash install.sh --hostname panel.example.com
 ```
 
 | Flag | Meaning |
