@@ -102,44 +102,15 @@ SUDO
 
   install -m 644 "$INSTALLER_DIR/systemd/phpanel-web.service" /etc/systemd/system/phpanel-web.service
   install -m 644 "$INSTALLER_DIR/systemd/phpanel-root.service" /etc/systemd/system/phpanel-root.service
+  # the installer's own functions stay on the server: Software and services sets a component up with the code the installer used, so a
+  # component added later is configured exactly like one installed at the start (root owns the folder; only root writes it)
+  install -d -m 755 -o root -g root /usr/local/lib/phpanel /usr/local/lib/phpanel/installer /usr/local/lib/phpanel/installer/lib /usr/local/lib/phpanel/installer/steps
+  install -m 644 -o root -g root "$INSTALLER_DIR"/lib/*.sh /usr/local/lib/phpanel/installer/lib/
+  install -m 644 -o root -g root "$INSTALLER_DIR"/steps/*.sh /usr/local/lib/phpanel/installer/steps/
 
-  # Fail2Ban for the panel login [18]
+  # Fail2Ban for the panel login [18] and the API [23]: the jails are written when Fail2Ban is installed (setup_panel_fail2ban, step 07)
   if [[ -d /etc/fail2ban ]]; then
-    cat >/etc/fail2ban/filter.d/phpanel.conf <<'EOF'
-[Definition]
-# Fail2Ban strips the timestamp before matching, so the line starts at "phpanel auth ..."
-failregex = ^\s*phpanel auth (?:failed|blocked) ip=<HOST>(?:\s|$)
-ignoreregex =
-EOF
-    cat >/etc/fail2ban/jail.d/phpanel.conf <<'EOF'
-[phpanel]
-enabled  = true
-port     = 8443
-filter   = phpanel
-logpath  = /opt/phpanel/logs/auth.log
-backend  = auto
-maxretry = 5
-findtime = 15m
-bantime  = 10m
-EOF
-    # the API [23]: 20 refused keys from one address in 15 minutes ban it for an hour (the login jail above is stricter and shorter)
-    cat >/etc/fail2ban/filter.d/phpanel-api.conf <<'EOF'
-[Definition]
-failregex = ^\s*phpanel apiauth failed ip=<HOST>(?:\s|$)
-ignoreregex =
-EOF
-    cat >/etc/fail2ban/jail.d/phpanel-api.conf <<'EOF'
-[phpanel-api]
-enabled  = true
-port     = 8443
-filter   = phpanel-api
-logpath  = /opt/phpanel/logs/auth.log
-backend  = auto
-maxretry = 20
-findtime = 15m
-bantime  = 1h
-EOF
-    touch /opt/phpanel/logs/auth.log; chown phpanel:phpanel /opt/phpanel/logs/auth.log; chmod 640 /opt/phpanel/logs/auth.log
+    setup_panel_fail2ban
     run systemctl restart fail2ban || warn "fail2ban did not restart after adding the phpanel jail"
   fi
 

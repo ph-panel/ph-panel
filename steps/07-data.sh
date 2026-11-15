@@ -208,7 +208,7 @@ enabled = true
 backend = systemd
 CONF
 )
-  if ! dns_only; then
+  if ! dns_only && [[ -d /etc/pure-ftpd ]]; then   # the FTP jail only while the FTP server is installed (Software and services)
     jails+=$'\n\n'$(cat <<'CONF'
 [pure-ftpd]
 enabled = true
@@ -218,6 +218,50 @@ CONF
 )
   fi
   write_file /etc/fail2ban/jail.d/00-phpanel.conf <<<"$jails"
+}
+
+# setup_panel_fail2ban – the jails for the panel's own sign-in and API [18] [23]; the files are written only when Fail2Ban is installed
+setup_panel_fail2ban() {
+  [[ -d /etc/fail2ban ]] || return 0
+  cat >/etc/fail2ban/filter.d/phpanel.conf <<'EOF'
+[Definition]
+# Fail2Ban strips the timestamp before matching, so the line starts at "phpanel auth ..."
+failregex = ^\s*phpanel auth (?:failed|blocked) ip=<HOST>(?:\s|$)
+ignoreregex =
+EOF
+  cat >/etc/fail2ban/jail.d/phpanel.conf <<'EOF'
+[phpanel]
+enabled  = true
+port     = 8443
+filter   = phpanel
+logpath  = /opt/phpanel/logs/auth.log
+backend  = auto
+maxretry = 5
+findtime = 15m
+bantime  = 10m
+EOF
+  # the API [23]: 20 refused keys from one address in 15 minutes ban it for an hour (the login jail above is stricter and shorter)
+  cat >/etc/fail2ban/filter.d/phpanel-api.conf <<'EOF'
+[Definition]
+failregex = ^\s*phpanel apiauth failed ip=<HOST>(?:\s|$)
+ignoreregex =
+EOF
+  cat >/etc/fail2ban/jail.d/phpanel-api.conf <<'EOF'
+[phpanel-api]
+enabled  = true
+port     = 8443
+filter   = phpanel-api
+logpath  = /opt/phpanel/logs/auth.log
+backend  = auto
+maxretry = 20
+findtime = 15m
+bantime  = 1h
+EOF
+  if [[ -d /opt/phpanel/logs ]]; then
+    touch /opt/phpanel/logs/auth.log
+    chown phpanel:phpanel /opt/phpanel/logs/auth.log 2>/dev/null || true
+    chmod 640 /opt/phpanel/logs/auth.log
+  fi
 }
 
 step_07_data() {

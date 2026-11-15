@@ -14,6 +14,18 @@ webapp_php_version() {
   [[ -n $WEBAPP_PHP ]]
 }
 
+# webapps_prepare NAME – before one web application is installed on its own (Software and services): the PHP version its pool runs on
+# (the version it is on already, else the preferred one), the folders, and the pool. NAME is webmail or dbadmin.
+webapps_prepare() {
+  local name=$1 f g
+  f=
+  for g in /etc/php/*/fpm/pool.d/phpanel-"$name".conf; do [[ -f $g ]] && { f=$g; break; }; done
+  if [[ -n $f ]]; then WEBAPP_PHP=$(awk -F/ '{print $4}' <<<"$f"); else webapp_php_version || { error "no PHP version installed"; return 1; }; fi
+  install -d -m 755 /opt/phpanel /opt/phpanel/webmail /opt/phpanel/dbadmin
+  webapp_pool "$name" "$name"
+  setup_pma_group
+}
+
 latest_github_tag() { # latest_github_tag OWNER/REPO – without the API (rate limit), via redirect
   local t; t=$(curl -fsSLI --max-time 20 -o /dev/null -w '%{url_effective}' "https://github.com/$1/releases/latest" 2>/dev/null) || return 1
   echo "${t##*/}"
@@ -160,6 +172,7 @@ install_webmail_sso() {
   # the tree Caddy serves: <client>/webmail -> the application, so both clients live under /webmail/
   local c
   for c in roundcube snappymail; do
+    [[ -f $wm/$c/.phpanel-version ]] || continue   # only the clients that are installed
     install -d -m 755 "$wm/_site/$c"
     # Roundcube 1.7 and newer serve only its public_html folder; assets come through static.php
     if [[ -d $wm/$c/public_html ]]; then ln -sfn "$wm/$c/public_html" "$wm/_site/$c/webmail"; else ln -sfn "$wm/$c" "$wm/_site/$c/webmail"; fi
@@ -235,6 +248,7 @@ function ph_remember_client(string $client): void {
 }
 PHP
 
+  if [[ -f $wm/roundcube/.phpanel-version ]]; then
   # Roundcube: log in with the master secret, which the hooks turn into "user*webmail-sso" for IMAP, SMTP and Sieve
   install -d -m 750 "$wm/roundcube/plugins/ph_sso"
   write_file "$wm/roundcube/plugins/ph_sso/ph_sso.php" 640 <<'PHP'
@@ -329,6 +343,8 @@ class ph_sso extends rcube_plugin
 }
 PHP
 
+  fi
+  if [[ -f $wm/snappymail/.phpanel-version ]]; then
   # SnappyMail: an SSO hash made by this script opens the account; the plug-in adds the master user to the IMAP and SMTP login
   write_file "$wm/snappymail/ph-sso.php" 640 <<'PHP'
 <?php
@@ -569,6 +585,8 @@ JSON
   # "localhost" and short logins. A file named after a hosted domain would override default.json for its mailboxes and
   # sign-in and password logins would fail, so only default.json stays.
   find "$dom" -maxdepth 1 -type f -name '*.json' ! -name default.json -delete 2>/dev/null || true
+  fi
+  if [[ -f $wm/roundcube/.phpanel-version ]]; then
   # Roundcube: change the mailbox password from Settings -> Password. The panel owns the passwords, so the driver asks it over the
   # local socket; the panel checks the current password itself (the session was opened without it, so the plug-in's own check is off).
   write_file "$wm/roundcube/plugins/password/drivers/phpanel.php" 640 <<'PHP'
@@ -616,9 +634,15 @@ $config['password_minimum_length'] = 10;
 $config['password_force_new_user'] = false;
 PHP
   chgrp webmail "$wm/roundcube/plugins/password/config.inc.php" "$wm/roundcube/plugins/password/drivers/phpanel.php"
+  fi
   # the web pool user reads these through its group
-  chgrp webmail "$wm/ph-redeem.php" "$wm/snappymail/ph-sso.php"; chmod 640 "$wm/ph-redeem.php" "$wm/snappymail/ph-sso.php"
-  chgrp -R webmail "$wm/roundcube/plugins/ph_sso"; chmod 750 "$wm/roundcube/plugins/ph_sso"; chmod 640 "$wm/roundcube/plugins/ph_sso/ph_sso.php"
+  chgrp webmail "$wm/ph-redeem.php"; chmod 640 "$wm/ph-redeem.php"
+  if [[ -f $wm/snappymail/.phpanel-version ]]; then
+    chgrp webmail "$wm/snappymail/ph-sso.php"; chmod 640 "$wm/snappymail/ph-sso.php"
+  fi
+  if [[ -f $wm/roundcube/.phpanel-version ]]; then
+    chgrp -R webmail "$wm/roundcube/plugins/ph_sso"; chmod 750 "$wm/roundcube/plugins/ph_sso"; chmod 640 "$wm/roundcube/plugins/ph_sso/ph_sso.php"
+  fi
   ok "webmail sign-in from the panel is set up"
 }
 
@@ -843,7 +867,9 @@ CONF
 
 setup_webapps_caddy() {
   install -d -m 755 /opt/phpanel/caddy
-  # shared snippet: phpMyAdmin under /phpmyadmin/, without the directories that must never be served [37]
+  # shared snippet: phpMyAdmin under /phpmyadmin/, without the directories that must never be served [37]. When phpMyAdmin is not
+  # installed the same snippet answers with a plain message, so the sites that import it keep working.
+  if [[ -f /opt/phpanel/dbadmin/phpmyadmin/.phpanel-version ]]; then
   write_file /opt/phpanel/caddy/00-snippets.caddy <<'CONF'
 (phpmyadmin) {
 	@pma_blocked path_regexp pmab (?i)^/phpmyadmin/(setup|libraries|templates|vendor|sql|locale|doc|examples|tmp)(/|$)|^/phpmyadmin/(composer\.(json|lock)|config\.inc\.php|README|ChangeLog|LICENSE|RELEASE-DATE.*|CONTRIBUTING.*|package\.json|yarn\.lock)$
@@ -863,6 +889,15 @@ setup_webapps_caddy() {
 	}
 }
 CONF
+  else
+  write_file /opt/phpanel/caddy/00-snippets.caddy <<'CONF'
+(phpmyadmin) {
+	handle /phpmyadmin* {
+		respond "phpMyAdmin is not installed on this server. An administrator can install it in Software and services." 404
+	}
+}
+CONF
+  fi
   # phpMyAdmin on the server's own addresses, only for installs without a panel hostname
   local ips=() ip
   for ip in ${IP_LOCAL:-} ${IP_PUBLIC:-}; do
@@ -944,16 +979,17 @@ step_09_webapps() {
   if dns_only; then info "dns-only: no webmail or phpMyAdmin"; return 0; fi
   [[ $DRY_RUN == 1 ]] && { info "[dry-run] installing Roundcube, SnappyMail, phpMyAdmin"; return 0; }
   webapp_php_version || { error "no PHP version installed; skipping the web apps"; return 0; }
-  info "php-fpm pools on PHP $WEBAPP_PHP"
-  install -d -m 755 /opt/phpanel /opt/phpanel/webmail /opt/phpanel/dbadmin
-  webapp_pool webmail webmail
-  webapp_pool dbadmin dbadmin
-  setup_pma_group
+  # a pool that was moved to another version (Software and services) stays where it is
+  local php_wm php_db
+  webapps_prepare webmail; php_wm=$WEBAPP_PHP
+  webapps_prepare dbadmin; php_db=$WEBAPP_PHP
+  info "php-fpm pools on PHP $php_wm (webmail) and PHP $php_db (phpMyAdmin)"
   install_roundcube
   install_snappymail
   install_webmail_sso
   install_phpmyadmin
   install_monaco
-  run systemctl restart "php${WEBAPP_PHP}-fpm" || true   # restart, not reload: the pool user has a new group
+  run systemctl restart "php${php_wm}-fpm" || true   # restart, not reload: the pool user has a new group
+  [[ $php_db == "$php_wm" ]] || run systemctl restart "php${php_db}-fpm" || true
   setup_webapps_caddy
 }

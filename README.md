@@ -22,6 +22,8 @@ Everything listed here is built and passes its automated tests.
 
 **Account import.** Import an account from a backup made by another hosting panel: files, databases with their original passwords, mailboxes, DNS zones, cron jobs, certificates and FTP accounts.
 
+**Software and services.** Admin, Software and services lists every optional part of the server (PHP versions 5.6 to 8.6, Redis, WP-CLI, phpMyAdmin, the Roundcube and SnappyMail webmail clients, the mail stack, FTP, Fail2Ban and restic) with its state, version and size, and installs, removes, starts, stops and restarts each one as a tracked job. Nothing that is in use is removed: PH-PANEL lists what uses it, and the domains of a PHP version can be moved to another installed version first.
+
 ## Install
 
 On a clean server (Ubuntu 26.04 / 24.04 or Debian 12 / 13, amd64), as root, install minisign and curl, download the installer, check its signature with the release key and run it, as one line:
