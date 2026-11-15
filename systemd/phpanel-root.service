@@ -13,6 +13,9 @@ RestartSec=2
 NoNewPrivileges=yes
 ProtectSystem=strict
 ReadWritePaths=/etc /home /var/lib /var/log /var/backups -/var/spool/postfix /opt/phpanel
+# usual places for a local backup destination (mounted disks, NFS shares); the "-" prefix lets the unit start when one is not there.
+# A folder elsewhere is added with "systemctl edit phpanel-root" (ReadWritePaths=/your/folder).
+ReadWritePaths=-/backup -/mnt -/srv -/media
 PrivateTmp=yes
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
