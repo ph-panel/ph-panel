@@ -25,6 +25,9 @@ step_12_panel() {
   dns_only || install -d -m 755 -o root -g root /opt/phpanel/caddy/tls/custom
   dns_only || install -d -m 700 -o root -g root /opt/phpanel/ssl/custom
   dns_only || install -d -m 755 -o root -g root /var/lib/phpanel/restore
+  # import of a backup from another hosting panel [08]: archives are dropped here by root; progress and secrets of an import are root only
+  dns_only || install -d -m 750 -o root -g root /var/lib/phpanel/import
+  dns_only || install -d -m 700 -o root -g root /var/lib/phpanel/importjobs
   # the WordPress tools [39] [60]: state, runs, snapshots and the requests of jobs (root only)
   dns_only || install -d -m 700 -o root -g root /var/lib/phpanel/wp
   install -d -m 750 -o root -g phpanel /opt/phpanel/ssl /opt/phpanel/ssl/panel
