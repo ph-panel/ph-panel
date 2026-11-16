@@ -2,6 +2,8 @@
 
 Web hosting control panel for Linux servers: domains, DNS, mail, databases, FTP and PHP in one place.
 
+Made in the E.U.
+
 ## Alpha notice
 
 > **Alpha software, for testing.**
