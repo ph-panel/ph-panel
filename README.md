@@ -12,18 +12,18 @@ Made in the E.U.
 
 ## Status
 
-**Rough estimate: about 60% of the planned features are done** (estimated on 2026-11-15). More is added with every release.
+**Rough estimate: about 65% of the planned features are done** (estimated on 2026-11-16). More is added with every release.
 
 | Area | Done | What you can do today |
 | --- | --- | --- |
-| Base | ~67% | Install a full hosting server in one command (web, PHP 5.6 to 8.6, databases, mail, DNS, FTP, firewall), on Ubuntu 24.04 / 26.04 and Debian 12 / 13. Sign in with two-factor protection and password recovery; administrators, resellers and users with packages. |
-| Operations and security | ~52% | Alerts by e-mail, SMS, Telegram, Slack and webhook; a daily health check of the server; disk and inode limits for accounts; automatic security updates; Fail2Ban bans; SSH keys for accounts. |
-| Domains, mail and access | ~85% | Add a domain and get the website, HTTPS, DNS and mail set up in seconds; full DNS editor with DNSSEC and optional Cloudflare sync; certificates of your own or wildcard; mailboxes with aliases, forwarding, automatic replies and one-click webmail (Roundcube or SnappyMail); FTP accounts; databases with phpMyAdmin; redirects and custom error pages. |
+| Base | ~67% | Install a full hosting server in one command (web, PHP 5.6 to 8.6, databases, mail, DNS, FTP, firewall), on Ubuntu 24.04 / 26.04 and Debian 12 / 13. Sign in with two-factor protection and password recovery; administrators, resellers and users with packages; totals for the whole server on the administrator's home page. |
+| Operations and security | ~70% | Graphs of the server and of every service; alerts by e-mail, SMS, Telegram, Slack and webhook; a daily health check; disk usage, disk and inode limits and CPU, memory and process limits for each account; automatic security updates; Fail2Ban bans; SSH keys for accounts. |
+| Domains, mail and access | ~85% | Add a domain and get the website, HTTPS, DNS and mail set up in seconds; full DNS editor with DNSSEC and optional Cloudflare sync, including the DNS records of the server's own name; certificates of your own or wildcard; mailboxes with aliases, forwarding, automatic replies and one-click webmail (Roundcube or SnappyMail); FTP accounts; databases with phpMyAdmin; aliases, redirects and custom error pages in each domain's page. |
 | Users' features | ~48% | File manager with editor, cron jobs, WordPress install and safe updates, backups to your own destinations (your folder, S3, SFTP, FTP) with restore of a file, a database or a mailbox, the whole server as one file with an optional password, and import from another hosting panel. |
 | Cluster | ~100% | Several servers working together: shared DNS, moving accounts between servers, shared Fail2Ban bans. |
 | Ecosystem | ~20% | REST API with API keys and a signed install channel. |
 
-**Coming next:** traffic and CPU/RAM limits per account, web terminal, CalDAV/CardDAV, per-mailbox spam settings, malware scan, graphs per service, web log analysis, languages and themes, plug-ins, and updating the panel itself from the panel.
+**Coming next:** traffic limits per account, web terminal, CalDAV/CardDAV, per-mailbox spam settings, malware scan, web log analysis, languages and themes, plug-ins, and updating the panel itself from the panel.
 
 **Software and services.** Admin, Software and services lists every optional part of the server (PHP versions, Redis, phpMyAdmin, the webmail clients, mail, FTP, Fail2Ban) and installs, removes, starts and stops each one. Nothing that is in use is removed.
 
@@ -77,7 +77,7 @@ Caddy and Apache (with ModSecurity and OWASP CRS), PHP 5.6 to 8.6 from packages.
 
 ## Privacy
 
-Every 6 hours your server sends the PH-PANEL team a short report: a random server id, system and PH-PANEL version, load, memory, disk and uptime. It never includes domains, accounts, files, mail or customer data, and your e-mail address is sent only if you choose it.
+Every 6 hours your server sends the PH-PANEL team a short report: a random server id, the server name, system and PH-PANEL version, load, memory, disk and uptime. It never includes domains, accounts, files, mail or customer data, and your e-mail address is sent only if you choose it.
 Turn it off with `--no-telemetry` at install, or later in Admin, Server, Usage statistics.
 More in the [privacy page](https://ph-panel.com/privacy).
 

@@ -51,6 +51,14 @@ SystemMaxUse=100M
 CONF
 }
 
+# I/O accounting for services [70]: the history graphs show disk reads and writes per service. CPU, memory and tasks are on by default.
+setup_accounting() {
+  write_file /etc/systemd/system.conf.d/phpanel-accounting.conf <<'CONF'
+[Manager]
+DefaultIOAccounting=yes
+CONF
+}
+
 setup_unattended() {
   # Security updates only, every night at 03:00 [19]. The full upgrade stays manual (Admin -> Updates), and nothing restarts the server by
   # itself: a restart is the administrator's choice. The origins are written out here instead of trusting the distribution's defaults, and the
@@ -186,6 +194,7 @@ CONF
 step_05_system() {
   setup_resolver
   setup_journald
+  setup_accounting
   setup_unattended
   dns_only || setup_quota
   setup_firewall

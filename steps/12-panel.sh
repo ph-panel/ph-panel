@@ -42,6 +42,39 @@ step_12_panel() {
   chown phpanel:phpanel /etc/phpanel/secret.key; chmod 600 /etc/phpanel/secret.key
   install -m 755 "$bin" /opt/phpanel/phpanel-web
   install -m 750 -o root -g root "$rootbin" /opt/phpanel/phpanel-root
+  # per-account PHP-FPM masters [03] log in their own folder; the slices of the accounts [09] are written by the panel (at start, daily and on
+  # every package change), so running this step again on an existing server puts its accounts in slices without a stop
+  dns_only || write_file /etc/logrotate.d/phpanel-fpm 644 <<'CONF'
+/var/log/phpanel-fpm/*.log {
+    weekly
+    rotate 4
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
+CONF
+  # a PHP package that changed (apt, or the panel's own PHP update) must reach the masters of the accounts, which the packaged unit does not
+  # restart: after every dpkg run, a master that still maps a replaced file of /usr gets a graceful re-exec, or a restart when that is not enough
+  if ! dns_only; then
+    write_file /usr/local/lib/phpanel/fpm-refresh 755 <<'REFRESH'
+#!/bin/sh
+# PH-PANEL: bring the PHP-FPM masters of the accounts (php<ver>-fpm@<account>.service) onto the PHP files that are installed now.
+for u in $(systemctl list-units --no-legend --plain --state=active 'php*-fpm@*.service' 2>/dev/null | awk '{print $1}'); do
+  pid=$(systemctl show -p MainPID --value "$u" 2>/dev/null)
+  [ "${pid:-0}" -gt 0 ] 2>/dev/null || continue
+  stale() { grep -qE '/usr/.*\(deleted\)' "/proc/$pid/maps" 2>/dev/null; }
+  stale || continue
+  systemctl reload "$u" >/dev/null 2>&1
+  sleep 1
+  if stale; then systemctl restart "$u" >/dev/null 2>&1; fi
+done
+exit 0
+REFRESH
+    write_file /etc/apt/apt.conf.d/99phpanel-fpm 644 <<'APTHOOK'
+DPkg::Post-Invoke { "[ -x /usr/local/lib/phpanel/fpm-refresh ] && /usr/local/lib/phpanel/fpm-refresh || true"; };
+APTHOOK
+  fi
   # the cron jobs of the accounts [36]: one cron line runs every job that is due; the jobs themselves live in /var/lib/phpanel/cron
   dns_only || write_file /etc/cron.d/phpanel-cron 644 <<'CRON'
 # PH-PANEL: runs the due cron jobs of the hosting accounts [36]. Managed by the panel; do not edit.

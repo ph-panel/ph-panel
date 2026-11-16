@@ -102,7 +102,7 @@ if [[ $OPT_NO_PANEL == 0 && ( -z $OPT_ONLY || ",$OPT_ONLY," == *",12,"* ) ]]; th
     printf '\n%s\n  %s\n' "${C_BOLD}Usage statistics${C_RESET}" "Off (--no-telemetry). Nothing is sent to the PH-PANEL team."
   else
     printf '\n%s\n' "${C_BOLD}Usage statistics${C_RESET}"
-    printf '  %s\n' "Every 6 hours this server sends the PH-PANEL team a short report: a random server id, system and PH-PANEL version," \
+    printf '  %s\n' "Every 6 hours this server sends the PH-PANEL team a short report: a random server id, the server name, system and PH-PANEL version," \
       "load, memory, disk and uptime. Never domains, accounts, files, mail or customer data. Your e-mail is not sent" \
       "unless you choose it with --share-email. To stop: install with --no-telemetry, or later use Admin, Server, Usage statistics," \
       "or run: phpanel-web telemetry off"
