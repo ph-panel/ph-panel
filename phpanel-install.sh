@@ -22,6 +22,8 @@ Usage: sudo bash phpanel-install.sh [options]
   --join-port N           the panel port of that server (default 8443)
   --role R                full (default) or dns-only: a name server with the panel only, secondary for the zones of the cluster [48]
   --no-panel              install only the stack, without the panel daemon
+  --no-telemetry          do not send usage statistics to the PH-PANEL team (on by default)
+  --share-email           also send the administrator's email to the PH-PANEL team for security and update notices (default: no)
   --only STEPS            run only the given steps (e.g. 03,04)
   --force                 also re-run steps that already completed
   --dry-run               show what would be done, without making changes
@@ -29,7 +31,7 @@ Usage: sudo bash phpanel-install.sh [options]
 EOF
 }
 
-OPT_HOSTNAME='' OPT_PUBLIC_IP='' OPT_PROFILE=auto OPT_PHP=auto OPT_ADMIN_EMAIL='' OPT_ADMIN_USERNAME='' OPT_NO_PANEL=0 OPT_ONLY='' OPT_FORCE=0 OPT_JOIN='' OPT_TOKEN='' OPT_JOIN_PORT='' OPT_ROLE=''
+OPT_HOSTNAME='' OPT_PUBLIC_IP='' OPT_PROFILE=auto OPT_PHP=auto OPT_ADMIN_EMAIL='' OPT_ADMIN_USERNAME='' OPT_NO_PANEL=0 OPT_NO_TELEMETRY=0 OPT_SHARE_EMAIL='' OPT_ONLY='' OPT_FORCE=0 OPT_JOIN='' OPT_TOKEN='' OPT_JOIN_PORT='' OPT_ROLE=''
 DRY_RUN=0
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -44,6 +46,8 @@ while [[ $# -gt 0 ]]; do
     --join-port) OPT_JOIN_PORT=$2; shift 2 ;;
     --role) OPT_ROLE=${2,,}; shift 2 ;;
     --no-panel) OPT_NO_PANEL=1; shift ;;
+    --no-telemetry) OPT_NO_TELEMETRY=1; shift ;;
+    --share-email) OPT_SHARE_EMAIL=1; shift ;;
     --only) OPT_ONLY=$2; shift 2 ;;
     --force) OPT_FORCE=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
@@ -52,6 +56,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 case $OPT_ROLE in ''|full|dns-only) ;; *) echo "--role takes full or dns-only" >&2; exit 2 ;; esac
+[[ $OPT_NO_TELEMETRY == 1 && $OPT_SHARE_EMAIL == 1 ]] && { echo "--share-email cannot be combined with --no-telemetry" >&2; exit 2; }
 export DRY_RUN
 
 . "$INSTALLER_DIR/lib/common.sh"
@@ -91,6 +96,24 @@ printf '%s\n' "${C_BOLD}PH-PANEL installer $PHPANEL_VERSION${C_RESET}  (log: $PH
 [[ $DRY_RUN == 1 ]] && printf '%s\n' "${C_YEL}Dry-run mode: nothing is modified.${C_RESET}"
 _logfile "=== start $PHPANEL_VERSION args: hostname=$OPT_HOSTNAME profile=$OPT_PROFILE php=$OPT_PHP no_panel=$OPT_NO_PANEL dry=$DRY_RUN"
 
+# Usage statistics: announced here, before anything on the system is changed. Only when the panel is installed in this run.
+if [[ $OPT_NO_PANEL == 0 && ( -z $OPT_ONLY || ",$OPT_ONLY," == *",12,"* ) ]]; then
+  if [[ $OPT_NO_TELEMETRY == 1 ]]; then
+    printf '\n%s\n  %s\n' "${C_BOLD}Usage statistics${C_RESET}" "Off (--no-telemetry). Nothing is sent to the PH-PANEL team."
+  else
+    printf '\n%s\n' "${C_BOLD}Usage statistics${C_RESET}"
+    printf '  %s\n' "Every 6 hours this server sends the PH-PANEL team a short report: a random server id, system and PH-PANEL version," \
+      "load, memory, disk and uptime. Never domains, accounts, files, mail or customer data. Your e-mail is not sent" \
+      "unless you choose it with --share-email. To stop: install with --no-telemetry, or later use Admin, Server, Usage statistics," \
+      "or run: phpanel-web telemetry off"
+    if [[ -z $OPT_SHARE_EMAIL && -t 0 && -t 1 && ! -f /opt/phpanel/data/panel.db && $DRY_RUN != 1 ]]; then
+      read -r -p "  Also send the administrator's e-mail for security and update notices? [y/N] " _ans || _ans=''
+      [[ ${_ans,,} == y || ${_ans,,} == yes ]] && OPT_SHARE_EMAIL=1
+    fi
+    [[ $OPT_SHARE_EMAIL == 1 ]] && printf '  %s\n' "The administrator's e-mail will also be sent (--share-email)."
+  fi
+fi
+
 facts_load
 [[ -n $OPT_ROLE ]] && fact_set SERVER_ROLE "$OPT_ROLE" && SERVER_ROLE=$OPT_ROLE
 if dns_only; then info "role: dns-only (name server and panel; no web, mail, database or FTP hosting)"; fi
@@ -124,6 +147,12 @@ join_cluster() {
   fi
 }
 if [[ -n $OPT_JOIN && $DRY_RUN != 1 && $OPT_NO_PANEL == 0 ]]; then join_cluster; fi
+
+# the answers about usage statistics also reach a server whose panel step did not run this time (an update with --no-telemetry)
+if [[ $DRY_RUN != 1 && $OPT_NO_PANEL == 0 && -x /opt/phpanel/phpanel-web && -f /opt/phpanel/data/panel.db ]]; then
+  if [[ $OPT_NO_TELEMETRY == 1 ]]; then /opt/phpanel/phpanel-web telemetry off >/dev/null 2>&1 || warn "could not switch off the usage statistics: run phpanel-web telemetry off"
+  elif [[ $OPT_SHARE_EMAIL == 1 ]]; then /opt/phpanel/phpanel-web telemetry email on >/dev/null 2>&1 || warn "could not switch on sending the e-mail: run phpanel-web telemetry email on"; fi
+fi
 
 # ---------- summary ----------
 printf '\n%s\n' "${C_BOLD}Summary${C_RESET}"

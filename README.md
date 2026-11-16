@@ -15,13 +15,13 @@ Web hosting control panel for Linux servers: domains, DNS, mail, databases, FTP 
 | Area | Done | What you can do today |
 | --- | --- | --- |
 | Base | ~67% | Install a full hosting server in one command (web, PHP 5.6 to 8.6, databases, mail, DNS, FTP, firewall), on Ubuntu 24.04 / 26.04 and Debian 12 / 13. Sign in with two-factor protection and password recovery; administrators, resellers and users with packages. |
-| Operations and security | ~52% | Alerts by e-mail, SMS, Telegram, Slack and webhook; automatic security updates; Fail2Ban bans; SSH keys for accounts. |
+| Operations and security | ~52% | Alerts by e-mail, SMS, Telegram, Slack and webhook; a daily health check of the server; disk and inode limits for accounts; automatic security updates; Fail2Ban bans; SSH keys for accounts. |
 | Domains, mail and access | ~85% | Add a domain and get the website, HTTPS, DNS and mail set up in seconds; full DNS editor with DNSSEC and optional Cloudflare sync; certificates of your own or wildcard; mailboxes with aliases, forwarding, automatic replies and one-click webmail (Roundcube or SnappyMail); FTP accounts; databases with phpMyAdmin; redirects and custom error pages. |
 | Users' features | ~48% | File manager with editor, cron jobs, WordPress install and safe updates, backups to your own destinations (your folder, S3, SFTP, FTP) with restore of a file, a database or a mailbox, the whole server as one file with an optional password, and import from another hosting panel. |
 | Cluster | ~100% | Several servers working together: shared DNS, moving accounts between servers, shared Fail2Ban bans. |
 | Ecosystem | ~20% | REST API with API keys and a signed install channel. |
 
-**Coming next:** web terminal, CalDAV/CardDAV, per-mailbox spam settings, malware scan, graphs per service, web log analysis, languages and themes, plug-ins, and updating the panel itself from the panel.
+**Coming next:** traffic and CPU/RAM limits per account, web terminal, CalDAV/CardDAV, per-mailbox spam settings, malware scan, graphs per service, web log analysis, languages and themes, plug-ins, and updating the panel itself from the panel.
 
 **Software and services.** Admin, Software and services lists every optional part of the server (PHP versions, Redis, phpMyAdmin, the webmail clients, mail, FTP, Fail2Ban) and installs, removes, starts and stops each one. Nothing that is in use is removed.
 
@@ -56,6 +56,8 @@ apt-get update && apt-get install -y minisign curl && curl -fsSLO https://ph-pan
 | `--join-port N` | the panel port of that server (default 8443) |
 | `--role R` | full (default) or dns-only: a name server with the panel only, secondary for the zones of the cluster |
 | `--no-panel` | install only the stack, without the panel daemon |
+| `--no-telemetry` | do not send usage statistics to the PH-PANEL team (on by default) |
+| `--share-email` | also send the administrator's email to the PH-PANEL team for security and update notices (default: no) |
 | `--only STEPS` | run only the given steps (e.g. 03,04) |
 | `--force` | also re-run steps that already completed |
 | `--dry-run` | show what would be done, without making changes |
@@ -70,6 +72,12 @@ Running the installer again is safe: finished steps are skipped. `--force --only
 ## What gets installed
 
 Caddy and Apache (with ModSecurity and OWASP CRS), PHP 5.6 to 8.6 from packages.sury.org, MariaDB, Postfix, Dovecot, Rspamd, Knot DNS with Unbound, Pure-FTPd, Redis, Fail2Ban with an nftables firewall, Roundcube, SnappyMail and phpMyAdmin.
+
+## Privacy
+
+Every 6 hours your server sends the PH-PANEL team a short report: a random server id, system and PH-PANEL version, load, memory, disk and uptime. It never includes domains, accounts, files, mail or customer data, and your e-mail address is sent only if you choose it.
+Turn it off with `--no-telemetry` at install, or later in Admin, Server, Usage statistics.
+More in the [privacy page](https://ph-panel.com/privacy).
 
 ## Support development
 

@@ -148,6 +148,12 @@ SUDO
   printf 'PHPANEL_PUBLIC_URL=https://%s:8443\n' "$pub" >/etc/phpanel/web.env
   chmod 644 /etc/phpanel/web.env
 
+  # usage statistics: the answers of the installer (--no-telemetry, --share-email) are read by the panel at its start, before anything is sent
+  if [[ ${OPT_NO_TELEMETRY:-0} == 1 || ${OPT_SHARE_EMAIL:-} == 1 ]]; then
+    ( umask 077; { [[ ${OPT_NO_TELEMETRY:-0} == 1 ]] && echo enabled=0; [[ ${OPT_SHARE_EMAIL:-} == 1 ]] && echo share_email=1; true; } >/opt/phpanel/data/telemetry.seed )
+    chown phpanel:phpanel /opt/phpanel/data/telemetry.seed
+  fi
+
   run systemctl daemon-reload
   # restart (not just enable --now) so a re-run picks up new binaries; the helper starts first [F1]
   run systemctl enable phpanel-root phpanel-web
