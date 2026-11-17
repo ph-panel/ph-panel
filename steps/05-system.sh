@@ -220,6 +220,9 @@ table inet phpanel_lo {
         # Rspamd's mail workers (Postfix asks them; nobody else needs to)
         ip daddr 127.0.0.0/8 tcp dport { 11332, 11333, 11334 } meta skuid != { $rsp } reject with tcp reset
         ip6 daddr ::1 tcp dport { 11332, 11333, 11334 } meta skuid != { $rsp } reject with tcp reset
+        # the port that hands system mail to the SMTP account (only the panel and the cron runner may use it; an account of a hosting customer cannot)
+        ip daddr 127.0.0.0/8 tcp dport 2526 meta skuid != { $stat } reject with tcp reset
+        ip6 daddr ::1 tcp dport 2526 meta skuid != { $stat } reject with tcp reset
     }
 }
 CONF

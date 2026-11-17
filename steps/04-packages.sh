@@ -104,7 +104,8 @@ step_04_packages() {
   apt_install_group "dns" knot knot-dnssecutils knot-dnsutils unbound unbound-anchor dns-root-data
   if ! dns_only; then
     apt_install_group "mail" postfix postfix-sqlite dovecot-core dovecot-imapd dovecot-pop3d \
-      dovecot-lmtpd dovecot-sieve dovecot-managesieved rspamd redis-server postsrsd
+      dovecot-lmtpd dovecot-sieve dovecot-managesieved rspamd redis-server postsrsd \
+      libsasl2-modules
     apt_install_group "databases" mariadb-server mariadb-client
     apt_install_group "ftp" pure-ftpd
     apt_install_group "statistics" goaccess

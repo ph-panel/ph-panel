@@ -11,7 +11,11 @@ step_12_panel() {
   [[ $DRY_RUN == 1 ]] && { info "[dry-run] installing $bin to /opt/phpanel"; return 0; }
 
   # unprivileged user [F1]
-  id phpanel >/dev/null 2>&1 || useradd --system --home-dir /opt/phpanel --shell /usr/sbin/nologin phpanel
+  if ! id phpanel >/dev/null 2>&1; then
+    useradd --system --home-dir /opt/phpanel --shell /usr/sbin/nologin phpanel
+    # step 05 ran before this account existed: write the loopback guard again so the panel itself may use the local ports meant for it
+    if declare -F setup_loopback_guard >/dev/null; then setup_loopback_guard || true; fi
+  fi
   getent group phpanel-pma >/dev/null || groupadd --system phpanel-pma   # owns the phpMyAdmin sign-on socket
   install -d -m 755 /opt/phpanel
   install -d -m 750 -o phpanel -g phpanel /opt/phpanel/data /opt/phpanel/logs

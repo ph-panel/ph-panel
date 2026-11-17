@@ -292,7 +292,7 @@ setup_postfix() {
   [[ $DRY_RUN == 1 ]] && { info "[dry-run] configuring Postfix"; return 0; }
   local host; host=$(mail_hostname)
   local f
-  for f in virtual_domains vmailbox valiases vsenders phpanel-hold phpanel-relay; do [[ -f /etc/postfix/$f ]] || : >/etc/postfix/$f; postmap "/etc/postfix/$f"; done
+  for f in virtual_domains vmailbox valiases vsenders phpanel-hold phpanel-relay phpanel-sysalias; do [[ -f /etc/postfix/$f ]] || : >/etc/postfix/$f; postmap "/etc/postfix/$f"; done
   # certificates the accounts installed for their mail host [68]: the panel writes this map (certificate and key files by host name);
   # postmap -F stores the files themselves in it, so it stays root only
   [[ -f /etc/postfix/phpanel-sni ]] || : >/etc/postfix/phpanel-sni
@@ -326,7 +326,7 @@ setup_postfix() {
     "transport_maps = hash:/etc/postfix/phpanel-hold, hash:/etc/postfix/phpanel-relay" \
     "relay_domains = hash:/etc/postfix/phpanel-relay" \
     "virtual_mailbox_maps = hash:/etc/postfix/vmailbox" \
-    "virtual_alias_maps = hash:/etc/postfix/valiases" \
+    "virtual_alias_maps = hash:/etc/postfix/valiases, hash:/etc/postfix/phpanel-sysalias" \
     "smtpd_sender_login_maps = hash:/etc/postfix/vsenders" \
     "smtpd_recipient_restrictions = check_policy_service { unix:private/quota-status, timeout=10s, default_action=DUNNO }" \
     "virtual_transport = lmtp:unix:private/dovecot-lmtp" \
@@ -375,6 +375,10 @@ setup_postfix() {
     done
     systemctl restart postsrsd >>"$PHPANEL_LOG_FILE" 2>&1 || true
   fi
+  # SMTP login for the optional SMTP account of system mail [46] (PLAIN and LOGIN come from this package); an update installs it too
+  if ! dpkg -s libsasl2-modules >/dev/null 2>&1; then
+    DEBIAN_FRONTEND=noninteractive apt-get install -y libsasl2-modules >>"$PHPANEL_LOG_FILE" 2>&1 || warn "libsasl2-modules could not be installed: an SMTP account for system mail will not work until it is"
+  fi
   if postfix check >>"$PHPANEL_LOG_FILE" 2>&1; then ok "postfix check OK ($host)"; else error "postfix check failed (see $PHPANEL_LOG_FILE)"; fi
 }
 
@@ -411,6 +415,16 @@ allow_username_mismatch = true;
 sign_authenticated = true;
 sign_local = true;
 CONF
+  # DKIM of the server's own name: system mail (cron output, alerts, notifications, tests) is signed as <host name>, so receivers that
+  # require SPF or DKIM (Gmail) can verify it. The key is created once and never replaced; its public half is shown on Admin > Mail.
+  local mh; mh=$(mail_hostname)
+  if [[ $mh == *.* && ! -s /var/lib/rspamd/dkim/$mh.default.key ]] && have rspamadm; then
+    if rspamadm dkim_keygen -d "$mh" -s default -b 2048 -k "/var/lib/rspamd/dkim/$mh.default.key" >/dev/null 2>>"$PHPANEL_LOG_FILE"; then
+      chown root:_rspamd "/var/lib/rspamd/dkim/$mh.default.key" 2>/dev/null || true
+      chmod 640 "/var/lib/rspamd/dkim/$mh.default.key"
+      ok "DKIM key created for the server name $mh"
+    else warn "the DKIM key of the server name could not be created"; fi
+  fi
   # "X-Spam: Yes" on spam (and any such header sent by others is removed first): the Sieve rule files it to Junk [32]
   write_file /etc/rspamd/local.d/milter_headers.conf <<'CONF'
 extended_spam_headers = true;
@@ -483,7 +497,7 @@ CONF
 lock_postfix_maps() {
   [[ $DRY_RUN == 1 ]] && return 0
   local f
-  for f in vmailbox valiases vsenders virtual_domains phpanel-hold phpanel-relay phpanel-ipmap; do
+  for f in vmailbox valiases vsenders virtual_domains phpanel-hold phpanel-relay phpanel-ipmap phpanel-sysalias; do
     [[ -e /etc/postfix/$f ]] && { chgrp postfix "/etc/postfix/$f" 2>/dev/null; chmod 640 "/etc/postfix/$f"; }
     [[ -e /etc/postfix/$f.db ]] && { chgrp postfix "/etc/postfix/$f.db" 2>/dev/null; chmod 640 "/etc/postfix/$f.db"; }
   done
