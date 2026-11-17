@@ -866,7 +866,7 @@ CONF
 }
 
 setup_webapps_caddy() {
-  install -d -m 755 /opt/phpanel/caddy
+  if getent group caddy >/dev/null 2>&1; then install -d -m 750 -o root -g caddy /opt/phpanel/caddy; else install -d -m 755 /opt/phpanel/caddy; fi
   # shared snippet: phpMyAdmin under /phpmyadmin/, without the directories that must never be served [37]. When phpMyAdmin is not
   # installed the same snippet answers with a plain message, so the sites that import it keep working.
   if [[ -f /opt/phpanel/dbadmin/phpmyadmin/.phpanel-version ]]; then
@@ -919,27 +919,9 @@ $names {
 }
 CONF
   fi
-  # local diagnostic site, loopback only; the public addresses (mail.<domain>/webmail) come from the panel DB [25]
-  write_file /opt/phpanel/caddy/20-webapps-local.caddy <<CONF
-http://127.0.0.1:8091 {
-	bind 127.0.0.1
-	handle_path /roundcube/* {
-		root * /opt/phpanel/webmail/roundcube
-		php_fastcgi unix//run/php/phpanel-webmail.sock
-		file_server
-	}
-	handle_path /snappymail/* {
-		root * /opt/phpanel/webmail/snappymail
-		php_fastcgi unix//run/php/phpanel-webmail.sock
-		file_server
-	}
-	handle_path /phpmyadmin/* {
-		root * /opt/phpanel/dbadmin/phpmyadmin
-		php_fastcgi unix//run/php/phpanel-dbadmin.sock
-		file_server
-	}
-}
-CONF
+  # (there used to be a loopback-only diagnostic site on port 8091 here; it let any local account reach the web apps around the
+  # panel's rules, so it is not written any more and an old one is removed by step 06)
+  rm -f /opt/phpanel/caddy/20-webapps-local.caddy
   if [[ $DRY_RUN != 1 ]]; then
     runuser -u caddy -- caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >>"$PHPANEL_LOG_FILE" 2>&1 \
       && ok "Caddyfile valid (with the web apps)" || error "caddy validate failed after adding the web apps"
@@ -1108,7 +1090,13 @@ step_09_webapps() {
   install_webmail_sso
   install_phpmyadmin
   install_monaco
-  install_dav || warn "the calendar and contact server was not installed"
+  # calendars and contacts [62]: on the Minimal profile (512 MB to 1.5 GB) the server is an optional part, installed from Software and services;
+  # a server that already has it keeps it up to date here
+  if [[ ${PROFILE:-standard} != minimal || -f /opt/phpanel/dav/.phpanel-version ]]; then
+    install_dav || warn "the calendar and contact server was not installed"
+  else
+    info "calendars and contacts: not installed on the Minimal profile (install it from Software and services)"
+  fi
   run systemctl restart "php${php_wm}-fpm" || true   # restart, not reload: the pool user has a new group
   [[ $php_db == "$php_wm" ]] || run systemctl restart "php${php_db}-fpm" || true
   setup_webapps_caddy

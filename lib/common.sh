@@ -163,7 +163,8 @@ write_file() {
   if [[ $DRY_RUN == 1 ]]; then
     info "[dry-run] writing $dest"; rm -f "$tmp"; return 0
   fi
-  install -d "$(dirname "$dest")"
+  # (install -d would reset the mode of a folder that exists, such as the closed /opt/phpanel/caddy)
+  [[ -d $(dirname "$dest") ]] || install -d "$(dirname "$dest")"
   if [[ -f $dest ]] && cmp -s "$tmp" "$dest"; then
     chmod "$mode" "$dest"
   else
