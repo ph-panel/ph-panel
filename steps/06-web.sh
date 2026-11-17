@@ -104,7 +104,11 @@ CONF
   local ms=/etc/modsecurity/modsecurity.conf
   if [[ ! -f $ms && -f $ms-recommended ]]; then cp "$ms-recommended" "$ms"; fi
   if [[ -f $ms ]]; then
-    sed -i "s/^SecRuleEngine .*/SecRuleEngine $(pick DetectionOnly On On On)/; s/^SecAuditLogFormat .*/SecAuditLogFormat JSON/" "$ms"
+    sed -i "s/^SecRuleEngine .*/SecRuleEngine $(pick DetectionOnly On On On)/" "$ms"
+    # the audit log is one JSON object per line for the panel's log analysis [51]; the packaged file has no SecAuditLogFormat line at all, so it
+    # is set (or added), and only the parts the analysis needs are logged (headers, response headers and the rule messages, no bodies)
+    if grep -q '^SecAuditLogFormat' "$ms"; then sed -i 's/^SecAuditLogFormat .*/SecAuditLogFormat JSON/' "$ms"; else printf '\n# PH-PANEL [51]\nSecAuditLogFormat JSON\n' >>"$ms"; fi
+    sed -i 's/^SecAuditLogParts .*/SecAuditLogParts ABFHZ/' "$ms"
   else
     warn "ModSecurity: $ms is missing (libapache2-mod-security2 package)"
   fi

@@ -47,6 +47,35 @@ CONF
 [mysqld]
 local_infile = 0
 CONF
+  # slow query log [38]: the settings the panel changes live (Admin, Slow queries); the file is only created here, never overwritten
+  # on a re-run, so a limit chosen by the administrator stays. Later files win over the profile above.
+  if [[ ! -s /etc/mysql/mariadb.conf.d/93-phpanel-slow.cnf ]]; then
+    write_file /etc/mysql/mariadb.conf.d/93-phpanel-slow.cnf <<'CONF'
+# Slow query log [38] - written by PH-PANEL, change it in Admin, MySQL, Slow queries
+[mysqld]
+slow_query_log = ON
+slow_query_log_file = /var/log/mysql/slow.log
+long_query_time = 2
+log_queries_not_using_indexes = OFF
+min_examined_row_limit = 0
+CONF
+  fi
+  # the log is rotated daily and kept for a week; the panel reads the file that was rotated away to its end (delaycompress keeps it
+  # readable for one more round) and MariaDB reopens the new file on flush-logs
+  write_file /etc/logrotate.d/phpanel-mysql-slow <<'CONF'
+/var/log/mysql/slow.log {
+    daily
+    rotate 7
+    missingok
+    notifempty
+    compress
+    delaycompress
+    create 660 mysql adm
+    postrotate
+        if [ -x /usr/bin/mariadb-admin ]; then /usr/bin/mariadb-admin --silent flush-logs slow >/dev/null 2>&1 || true; fi
+    endscript
+}
+CONF
   # a copy, not a symlink: AppArmor (mariadbd) does not allow reading from /opt
   if [[ $DRY_RUN != 1 ]]; then
     cp -f "$prof/${MYCNF_PROFILE:-p02}.cnf" /etc/mysql/mariadb.conf.d/90-phpanel.cnf
@@ -220,6 +249,77 @@ CONF
   write_file /etc/fail2ban/jail.d/00-phpanel.conf <<<"$jails"
 }
 
+# setup_web_fail2ban – jails on the Caddy JSON access logs of the sites [51]: brute force on wp-login.php and xmlrpc.php, bursts of 404 from one address
+# and known scanners. The filters are always written; the jails are on except on the Minimal profile (a jail that watches every site log is not
+# free on 1 GB). The bans go through the same Fail2Ban as the others, so they are shared in the cluster [50]. A log file that appears later is
+# picked up when the panel asks Fail2Ban to reload these jails.
+setup_web_fail2ban() {
+  [[ -d /etc/fail2ban ]] || return 0
+  dns_only && return 0
+  cat >/etc/fail2ban/filter.d/phpanel-wp.conf <<'EOF'
+# PH-PANEL: login and XML-RPC attempts against WordPress, from the Caddy JSON access log of a site. client_ip is the visitor's address
+# (Caddy sets it from the trusted proxies); a failed WordPress login answers 200, a blocked one 401, 403 or 429.
+[Definition]
+failregex = ^.*"client_ip":"<HOST>".*"method":"POST","host":"[^"]*","uri":"/(?:wp-login\.php|xmlrpc\.php)[^"]*".*"status":(?:200|401|403|429)[,}]
+ignoreregex =
+datepattern = "ts":{EPOCH}
+EOF
+  cat >/etc/fail2ban/filter.d/phpanel-404.conf <<'EOF'
+# PH-PANEL: many pages that do not exist, asked for by one address (a scan), from the Caddy JSON access log of a site
+[Definition]
+failregex = ^.*"client_ip":"<HOST>".*"status":404[,}]
+ignoreregex =
+datepattern = "ts":{EPOCH}
+EOF
+  cat >/etc/fail2ban/filter.d/phpanel-scan.conf <<'EOF'
+# PH-PANEL: requests for files that only a scanner asks for, and well-known scanner programs, from the Caddy JSON access log of a site
+[Definition]
+failregex = ^.*"client_ip":"<HOST>".*"uri":"/(?:\.env|\.git/|\.svn/|\.aws/|\.ssh/|\.DS_Store|wp-config\.(?:php|bak|old|txt)|phpmyadmin|pma/|myadmin|vendor/phpunit|cgi-bin/|boaform|actuator|HNAP1|etc/passwd)
+            ^.*"client_ip":"<HOST>".*"User-Agent":\["[^"]*(?:sqlmap|nikto|masscan|nmap scripting|acunetix|wpscan|zgrab|dirbuster|gobuster)
+ignoreregex =
+datepattern = "ts":{EPOCH}
+EOF
+  # Fail2Ban refuses to start a jail that finds no log file at all, and a server with no site yet has none: this empty file is always there
+  [[ -e /var/log/phpanel-web-none.log ]] || install -m 644 /dev/null /var/log/phpanel-web-none.log
+  local on; on=$(pick false true true true)
+  cat >/etc/fail2ban/jail.d/phpanel-web.conf <<EOF
+# PH-PANEL [51]: jails on the access logs of the sites. The list of log files is read when a jail starts.
+[phpanel-wp]
+enabled  = $on
+backend  = auto
+filter   = phpanel-wp
+logpath  = /home/*/domains/*/logs/access.log
+           /var/log/phpanel-web-none.log
+port     = http,https
+maxretry = 10
+findtime = 5m
+bantime  = 1h
+
+[phpanel-404]
+enabled  = $on
+backend  = auto
+filter   = phpanel-404
+logpath  = /home/*/domains/*/logs/access.log
+           /var/log/phpanel-web-none.log
+port     = http,https
+maxretry = 60
+findtime = 2m
+bantime  = 30m
+
+[phpanel-scan]
+enabled  = $on
+backend  = auto
+filter   = phpanel-scan
+logpath  = /home/*/domains/*/logs/access.log
+           /var/log/phpanel-web-none.log
+port     = http,https
+maxretry = 3
+findtime = 10m
+bantime  = 6h
+EOF
+  ok "Fail2Ban jails for the site logs (phpanel-wp, phpanel-404, phpanel-scan; on: $on)"
+}
+
 # setup_panel_fail2ban – the jails for the panel's own sign-in and API [18] [23]; the files are written only when Fail2Ban is installed
 setup_panel_fail2ban() {
   [[ -d /etc/fail2ban ]] || return 0
@@ -272,4 +372,5 @@ step_07_data() {
   setup_knot
   dns_only || setup_ftp
   setup_fail2ban
+  setup_web_fail2ban
 }
