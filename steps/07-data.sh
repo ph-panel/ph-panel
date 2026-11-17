@@ -362,6 +362,16 @@ EOF
     chown phpanel:phpanel /opt/phpanel/logs/auth.log 2>/dev/null || true
     chmod 640 /opt/phpanel/logs/auth.log
   fi
+  # the calendar server's jail watches the same log; step 09 cannot write it before the log exists
+  if [[ -e /etc/systemd/system/phpanel-dav.service ]] && declare -F setup_dav_fail2ban >/dev/null; then setup_dav_fail2ban; fi
+}
+
+# setup_fail2ban_all – every PH-PANEL jail in one call, for the paths that reinstall or reload Fail2Ban after the first install (Software and
+# services): the base jails, the site-log jails [51], the panel sign-in and API jails and, when the calendar server is on this machine, its jail.
+setup_fail2ban_all() {
+  setup_fail2ban
+  setup_web_fail2ban
+  setup_panel_fail2ban   # also writes the calendar server's jail when that server is on this machine
 }
 
 step_07_data() {

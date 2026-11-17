@@ -12,18 +12,18 @@ Made in the E.U.
 
 ## Status
 
-**Rough estimate: about 69% of the planned features are done** (estimated on 2026-11-17). More is added with every release.
+**Rough estimate: about 72% of the planned features are done** (estimated on 2026-11-17). More is added with every release.
 
 | Area | Done | What you can do today |
 | --- | --- | --- |
 | Base | ~67% | Install a full hosting server in one command (web, PHP 5.6 to 8.6, databases, mail, DNS, FTP, firewall), on Ubuntu 24.04 / 26.04 and Debian 12 / 13. Sign in with two-factor protection and password recovery; administrators, resellers and users with packages; totals for the whole server on the administrator's home page. |
 | Operations and security | ~67% | Graphs of the server and of every service; alerts by e-mail, SMS, Telegram, Slack and webhook; a daily health check; disk usage, disk and inode limits and CPU, memory and process limits for each account; automatic security updates; Fail2Ban bans; SSH keys for accounts. |
 | Domains, mail and access | ~85% | Add a domain and get the website, HTTPS, DNS and mail set up in seconds; full DNS editor with DNSSEC and optional Cloudflare sync, including the DNS records of the server's own name; certificates of your own or wildcard; mailboxes with aliases, forwarding, automatic replies and one-click webmail (Roundcube or SnappyMail); FTP accounts; databases with phpMyAdmin; aliases, redirects and custom error pages in each domain's page. |
-| Users' features | ~61% | File manager with editor, cron jobs, WordPress install and safe updates, a slow-query monitor for your databases, statistics and logs for each domain, backups to your own destinations (your folder, S3, SFTP, FTP) with restore of a file, a database or a mailbox, the whole server as one file with an optional password, and import from another hosting panel. |
+| Users' features | ~68% | File manager with editor, a web terminal in the browser, cron jobs, calendars and contacts for every mailbox, spam settings for each mailbox, WordPress install and safe updates, a slow-query monitor for your databases, statistics and logs for each domain, backups to your own destinations (your folder, S3, SFTP, FTP) with restore of a file, a database or a mailbox, the whole server as one file with an optional password, and import from another hosting panel. |
 | Cluster | ~100% | Several servers working together: shared DNS, moving accounts between servers, shared Fail2Ban bans. |
 | Ecosystem | ~20% | REST API with API keys and a signed install channel. |
 
-**Coming next:** traffic limits per account, web terminal, CalDAV/CardDAV, per-mailbox spam settings, malware scan, languages and themes, plug-ins, and updating the panel itself from the panel.
+**Coming next:** traffic limits per account, learning from Junk and Not junk, contacts in Roundcube, malware scan, languages and themes, plug-ins, and updating the panel itself from the panel.
 
 **Software and services.** Admin, Software and services lists every optional part of the server (PHP versions, Redis, phpMyAdmin, the webmail clients, mail, FTP, Fail2Ban) and installs, removes, starts and stops each one. Nothing that is in use is removed.
 

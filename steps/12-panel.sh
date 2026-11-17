@@ -30,6 +30,7 @@ step_12_panel() {
   dns_only || install -d -m 700 -o root -g root /var/lib/phpanel/importjobs
   # the WordPress tools [39] [60]: state, runs, snapshots and the requests of jobs (root only)
   dns_only || install -d -m 700 -o root -g root /var/lib/phpanel/wp
+  dns_only || install -d -m 700 -o phpanel -g phpanel /var/lib/phpanel/dav-spool
   install -d -m 750 -o root -g phpanel /opt/phpanel/ssl /opt/phpanel/ssl/panel
   install -d -m 750 -o root -g phpanel /etc/phpanel
   # what this server is for: the panel reads it to hide hosting on a name server [48]
@@ -140,6 +141,12 @@ SUDO
   install -d -m 755 -o root -g root /usr/local/lib/phpanel /usr/local/lib/phpanel/installer /usr/local/lib/phpanel/installer/lib /usr/local/lib/phpanel/installer/steps
   install -m 644 -o root -g root "$INSTALLER_DIR"/lib/*.sh /usr/local/lib/phpanel/installer/lib/
   install -m 644 -o root -g root "$INSTALLER_DIR"/steps/*.sh /usr/local/lib/phpanel/installer/steps/
+  # the calendar and contact server [62] ships with the installer (vendored libraries, no download); Software and services installs it from here
+  if [[ -d $INSTALLER_DIR/steps/dav ]]; then
+    rm -rf /usr/local/lib/phpanel/installer/steps/dav
+    cp -a "$INSTALLER_DIR/steps/dav" /usr/local/lib/phpanel/installer/steps/dav
+    chown -R root:root /usr/local/lib/phpanel/installer/steps/dav
+  fi
 
   # Fail2Ban for the panel login [18] and the API [23]: the jails are written when Fail2Ban is installed (setup_panel_fail2ban, step 07)
   if [[ -d /etc/fail2ban ]]; then
