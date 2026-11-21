@@ -154,6 +154,18 @@ if [[ $DRY_RUN != 1 && $OPT_NO_PANEL == 0 && -x /opt/phpanel/phpanel-web && -f /
   elif [[ $OPT_SHARE_EMAIL == 1 ]]; then /opt/phpanel/phpanel-web telemetry email on >/dev/null 2>&1 || warn "could not switch on sending the e-mail: run phpanel-web telemetry email on"; fi
 fi
 
+# log rotation gate: one broken logrotate file stops EVERY system log from rotating (logrotate.service fails), so it is checked every time
+if [[ $DRY_RUN != 1 ]] && command -v logrotate >/dev/null 2>&1; then
+  lr_err=$(logrotate -d /etc/logrotate.conf 2>&1 | grep -m1 '^error' || true)
+  if [[ -n $lr_err ]]; then
+    warn "log rotation is broken, so no system log is rotated: ${lr_err#error: }"
+  elif [[ $(systemctl is-failed logrotate.service 2>/dev/null || true) == failed ]]; then
+    systemctl reset-failed logrotate.service >/dev/null 2>&1 || true
+    systemctl start --no-block logrotate.service >/dev/null 2>&1 || true
+    info "logrotate.service had failed earlier; its configuration is valid now and it was started again"
+  fi
+fi
+
 # ---------- summary ----------
 printf '\n%s\n' "${C_BOLD}Summary${C_RESET}"
 n_err=$(grep -c '^ERROR' "$PHPANEL_REPORT_FILE" || true)

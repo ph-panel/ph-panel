@@ -60,9 +60,13 @@ log_queries_not_using_indexes = OFF
 min_examined_row_limit = 0
 CONF
   fi
-  # the log is rotated daily and kept for a week; the panel reads the file that was rotated away to its end (delaycompress keeps it
-  # readable for one more round) and MariaDB reopens the new file on flush-logs
-  write_file /etc/logrotate.d/phpanel-mysql-slow <<'CONF'
+  # The slow log is rotated by the distribution's own MariaDB logrotate entry when it covers the file (a glob such as /var/log/mysql/*.log;
+  # it flushes the slow log and delaycompress keeps the rotated file readable for the panel). A second entry for the same file makes
+  # logrotate fail ("duplicate log entry") and then no system log rotates, so an entry written by an earlier release is removed, and
+  # PH-PANEL writes its own only when nothing else covers the file.
+  rm -f /etc/logrotate.d/phpanel-mysql-slow
+  if [[ $DRY_RUN != 1 ]] && ! grep -rEqs '/var/log/mysql/(\*|slow)\.log' /etc/logrotate.conf /etc/logrotate.d; then
+    write_file /etc/logrotate.d/phpanel-mysql-slow <<'CONF'
 /var/log/mysql/slow.log {
     daily
     rotate 7
@@ -76,6 +80,7 @@ CONF
     endscript
 }
 CONF
+  fi
   # a copy, not a symlink: AppArmor (mariadbd) does not allow reading from /opt
   if [[ $DRY_RUN != 1 ]]; then
     cp -f "$prof/${MYCNF_PROFILE:-p02}.cnf" /etc/mysql/mariadb.conf.d/90-phpanel.cnf
