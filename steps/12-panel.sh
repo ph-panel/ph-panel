@@ -39,6 +39,8 @@ step_12_panel() {
   dns_only || install -d -m 700 -o phpanel -g phpanel /var/lib/phpanel/dav-spool
   install -d -m 750 -o root -g phpanel /opt/phpanel/ssl /opt/phpanel/ssl/panel
   install -d -m 750 -o root -g phpanel /etc/phpanel
+  # the secret of panel-opened webmail sessions: the panel reads it to serve the address book of those sessions
+  if [[ -f /etc/phpanel/webmail-master.secret ]]; then chown webmail:phpanel /etc/phpanel/webmail-master.secret 2>/dev/null && chmod 640 /etc/phpanel/webmail-master.secret || true; fi
   # what this server is for: the panel reads it to hide hosting on a name server [48]
   printf '%s\n' "${SERVER_ROLE:-full}" >/etc/phpanel/role; chown root:phpanel /etc/phpanel/role; chmod 640 /etc/phpanel/role
   install -d -m 755 /opt/phpanel/lang /opt/phpanel/themes

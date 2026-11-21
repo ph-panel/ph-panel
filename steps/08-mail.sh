@@ -25,6 +25,8 @@ setup_dovecot() {
   fi
   id webmail >/dev/null 2>&1 || useradd --system --home-dir /opt/phpanel/webmail --shell /usr/sbin/nologin webmail
   chown webmail:webmail /etc/phpanel/webmail-master.secret; chmod 600 /etc/phpanel/webmail-master.secret
+  # the panel checks it for the address book of panel-opened webmail sessions (read only, same group as the panel's own files)
+  if getent group phpanel >/dev/null 2>&1; then chown webmail:phpanel /etc/phpanel/webmail-master.secret; chmod 640 /etc/phpanel/webmail-master.secret; fi
   local msecret mhash; msecret=$(cat /etc/phpanel/webmail-master.secret)
   # doveadm reads the whole Dovecot configuration, so a configuration that is broken at this moment (for example left by an earlier run
   # on another Dovecot version) would stop this step before it can repair it: openssl makes the same SHA512-CRYPT hash
