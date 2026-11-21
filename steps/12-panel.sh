@@ -23,6 +23,8 @@ step_12_panel() {
   install -d -m 700 -o phpanel -g phpanel /var/lib/phpanel/migrations
   # scheduled backups [07] [71]: settings, keys and state are root-only; a restore unpacks into a folder per account that only that account can enter
   dns_only || install -d -m 700 -o root -g root /opt/phpanel/backup /var/lib/phpanel/restic-cache
+  # the backup settings file exists from the first install and after every update (empty settings; an existing file is never touched)
+  dns_only || [ -s /opt/phpanel/backup/config.json ] || { printf '{}\n' >/opt/phpanel/backup/config.json && chmod 600 /opt/phpanel/backup/config.json; }
   # web rules of the domains [35]: redirects, password folders (hashes only), alias names and suspended accounts; root only
   dns_only || install -d -m 750 -o root -g root /opt/phpanel/sites
   # certificates the accounts bought [68]: the files Caddy reads (the key readable by Caddy only) and, root only, the key of a request that waits for its certificate
