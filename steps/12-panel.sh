@@ -92,6 +92,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 * * * * * root /opt/phpanel/phpanel-root cron-tick
 * * * * * root /opt/phpanel/phpanel-root backup-tick
 */5 * * * * root /opt/phpanel/phpanel-root wp-tick
+*/10 * * * * root /opt/phpanel/phpanel-root malware-tick
 CRON
   # SSH access of the accounts [66]: the login shell hands the session to the helper through sudo (a rule for the members of the SSH
   # group only), and the helper puts it in the jail of the account. Nothing here lets an account in: that takes the panel (a key, the

@@ -12,18 +12,18 @@ Made in the E.U.
 
 ## Status
 
-**Rough estimate: about 73% of the planned features are done** (estimated on 2026-11-21). More is added with every release.
+**Rough estimate: about 74% of the planned features are done** (estimated on 2026-11-22). More is added with every release.
 
 | Area | Done | What you can do today |
 | --- | --- | --- |
 | Base | ~67% | Install a full hosting server in one command (web, PHP 5.6 to 8.6, databases, mail, DNS, FTP, firewall), on Ubuntu 24.04 / 26.04 and Debian 12 / 13. Sign in with two-factor protection and password recovery; administrators, resellers and users with packages; totals for the whole server on the administrator's home page. |
-| Operations and security | ~67% | Graphs of the server and of every service; alerts by e-mail, SMS, Telegram, Slack and webhook; a daily health check; disk usage, disk and inode limits and CPU, memory and process limits for each account; automatic security updates; Fail2Ban bans; SSH keys for accounts. |
+| Operations and security | ~73% | Graphs of the server and of every service; alerts by e-mail, SMS, Telegram, Slack and webhook; a daily health check; disk usage, disk and inode limits and CPU, memory and process limits for each account; automatic security updates; Fail2Ban bans; SSH keys for accounts; an optional malware scan of the site files with quarantine. |
 | Domains, mail and access | ~85% | Add a domain and get the website, HTTPS, DNS and mail set up in seconds; full DNS editor with DNSSEC and optional Cloudflare sync, including the DNS records of the server's own name; system mail (cron, alerts, password recovery) that reaches other providers, with the exact DNS records shown in every warning or through an SMTP account of your own; an Rspamd page for the administrator; certificates of your own or wildcard; mailboxes with aliases, forwarding, automatic replies and one-click webmail (Roundcube or SnappyMail); FTP accounts; databases with phpMyAdmin; aliases, redirects and custom error pages in each domain's page. |
 | Users' features | ~70% | File manager with editor, a root terminal in the browser for the administrator that asks for the password, cron jobs, calendars and contacts for every mailbox (the contacts are also in webmail), spam settings for each mailbox, WordPress install and safe updates, a slow-query monitor for your databases, statistics and logs for each domain, clearer Backups pages (one Back up now button, guided restore, schedule presets, a copy you can download) with destinations of your own (your folder, S3, SFTP, FTP), also for administrators, restore of a file, a database or a mailbox, the whole server as one file with an optional password, FTP in one place (accounts, live sessions, activity log, connection details), and import from another hosting panel. |
 | Cluster | ~100% | Several servers working together: shared DNS, moving accounts between servers, shared Fail2Ban bans. |
 | Ecosystem | ~20% | REST API with API keys and a signed install channel. |
 
-**Coming next:** traffic limits per account, learning from Junk and Not junk, malware scan, languages and themes, plug-ins, and updating the panel itself from the panel.
+**Coming next:** traffic limits per account, learning from Junk and Not junk, languages and themes, plug-ins, and updating the panel itself from the panel.
 
 **Services and software.** Admin, Services lists the services of the server and every optional part (PHP versions, Redis, phpMyAdmin, the webmail clients, mail, FTP, Fail2Ban) in one list with filters and search, and installs, removes, starts and stops each one. Nothing that is in use is removed.
 
