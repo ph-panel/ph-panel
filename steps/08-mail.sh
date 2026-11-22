@@ -149,6 +149,8 @@ service auth {
   }
 }
 service lmtp {
+  # delivery runs the Sieve actions (automatic replies call sendmail, a Go program that reserves address space): the stock 256 MB limit is too small
+  vsz_limit = 2G
   unix_listener /var/spool/postfix/private/dovecot-lmtp {
     mode = 0600
     user = postfix
@@ -259,6 +261,8 @@ service auth {
   }
 }
 service lmtp {
+  # delivery runs the Sieve actions (automatic replies call sendmail, a Go program that reserves address space): the stock 256 MB limit is too small
+  vsz_limit = 2G
   unix_listener /var/spool/postfix/private/dovecot-lmtp {
     mode = 0600
     user = postfix
@@ -289,12 +293,38 @@ CONF
   if doveconf -n >/dev/null 2>>"$PHPANEL_LOG_FILE"; then ok "Dovecot configuration valid"; else error "doveconf found errors (see $PHPANEL_LOG_FILE)"; fi
 }
 
+# The mail rules [28] [34] [41] [47]: a small policy program that Postfix starts for each connection (nothing stays resident), the tables of backup MX
+# domains and the address check against their primary server. Also run by step 12, so an update that skips this step still gets them.
+postfix_guard_config() {
+  have postconf || return 0
+  local f
+  for f in phpanel-bmx phpanel-bmxv; do [[ -f /etc/postfix/$f ]] || : >/etc/postfix/$f; postmap "/etc/postfix/$f"; done
+  # the list of accounts that must use the panel's sendmail is read by Postfix's submission program under the identity of whoever sends: world readable
+  [[ -f /etc/postfix/phpanel-nosubmit ]] || : >/etc/postfix/phpanel-nosubmit
+  postmap /etc/postfix/phpanel-nosubmit; chmod 644 /etc/postfix/phpanel-nosubmit /etc/postfix/phpanel-nosubmit.db
+  # Postfix refuses to start a policy program as its own user, so the program has a user of its own (it reads the rules and keeps counters, nothing more)
+  getent group phpanel-guard >/dev/null || groupadd -r phpanel-guard
+  id phpanel-guard >/dev/null 2>&1 || useradd -r -g phpanel-guard -d /var/lib/phpanel-mailguard -M -s /usr/sbin/nologin phpanel-guard
+  install -d -o phpanel-guard -g phpanel-guard -m 750 /var/lib/phpanel-mailguard
+  postconf -M "phpanel-guard/unix=phpanel-guard unix - n n - - spawn user=phpanel-guard argv=/usr/local/lib/phpanel/phpanel-mail guard"
+  postconf -e \
+    "transport_maps = hash:/etc/postfix/phpanel-hold, hash:/etc/postfix/phpanel-relay, hash:/etc/postfix/phpanel-bmx" \
+    "relay_domains = hash:/etc/postfix/phpanel-relay, hash:/etc/postfix/phpanel-bmx" \
+    "smtpd_restriction_classes = phpanel_bmx_verify" \
+    "phpanel_bmx_verify = reject_unverified_recipient" \
+    "unverified_recipient_reject_code = 550" \
+    "address_verify_negative_refresh_time = 5m" \
+    "unverified_recipient_tempfail_action = defer_if_permit" \
+    "smtpd_recipient_restrictions = check_policy_service { unix:private/phpanel-guard, timeout=10s, default_action=DUNNO }, check_policy_service { unix:private/quota-status, timeout=10s, default_action=DUNNO }, check_recipient_access hash:/etc/postfix/phpanel-bmxv" \
+    "smtpd_end_of_data_restrictions = check_policy_service { unix:private/phpanel-guard, timeout=10s, default_action=DUNNO }"
+}
+
 setup_postfix() {
   have postconf || { info "postfix not installed, skipping"; return 0; }
   [[ $DRY_RUN == 1 ]] && { info "[dry-run] configuring Postfix"; return 0; }
   local host; host=$(mail_hostname)
   local f
-  for f in virtual_domains vmailbox valiases vsenders phpanel-hold phpanel-relay phpanel-sysalias; do [[ -f /etc/postfix/$f ]] || : >/etc/postfix/$f; postmap "/etc/postfix/$f"; done
+  for f in virtual_domains vmailbox valiases vsenders phpanel-hold phpanel-relay phpanel-sysalias phpanel-bmx phpanel-bmxv; do [[ -f /etc/postfix/$f ]] || : >/etc/postfix/$f; postmap "/etc/postfix/$f"; done
   # certificates the accounts installed for their mail host [68]: the panel writes this map (certificate and key files by host name);
   # postmap -F stores the files themselves in it, so it stays root only
   [[ -f /etc/postfix/phpanel-sni ]] || : >/etc/postfix/phpanel-sni
@@ -340,6 +370,7 @@ setup_postfix() {
     "sender_canonical_classes = envelope_sender" \
     "recipient_canonical_maps = $srs_rev" \
     "recipient_canonical_classes = envelope_recipient, header_recipient"
+  postfix_guard_config
   # submission 587 (STARTTLS) and smtps 465, authentication only [09]
   postconf -M "submission/inet=submission inet n - y - - smtpd"
   postconf -P "submission/inet/syslog_name=postfix/submission" \
@@ -499,7 +530,7 @@ CONF
 lock_postfix_maps() {
   [[ $DRY_RUN == 1 ]] && return 0
   local f
-  for f in vmailbox valiases vsenders virtual_domains phpanel-hold phpanel-relay phpanel-ipmap phpanel-sysalias; do
+  for f in vmailbox valiases vsenders virtual_domains phpanel-hold phpanel-relay phpanel-ipmap phpanel-sysalias phpanel-bmx phpanel-bmxv; do
     [[ -e /etc/postfix/$f ]] && { chgrp postfix "/etc/postfix/$f" 2>/dev/null; chmod 640 "/etc/postfix/$f"; }
     [[ -e /etc/postfix/$f.db ]] && { chgrp postfix "/etc/postfix/$f.db" 2>/dev/null; chmod 640 "/etc/postfix/$f.db"; }
   done

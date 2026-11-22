@@ -175,10 +175,12 @@ table inet phpanel {
     }
 }
 include "/etc/phpanel/loopback-guard.nft"
+include "/etc/phpanel/mailguard.nft"
 CONF
   if [[ $DRY_RUN != 1 ]]; then
     install -d /etc/phpanel
     [[ -f /etc/phpanel/loopback-guard.nft ]] || printf 'table inet phpanel_lo\n' >/etc/phpanel/loopback-guard.nft
+    [[ -f /etc/phpanel/mailguard.nft ]] || printf 'table inet phpanel_mg\n' >/etc/phpanel/mailguard.nft
     if nft -c -f /etc/nftables.conf >>"$PHPANEL_LOG_FILE" 2>&1; then
       ok "nftables rules valid (SSH: $ssh_ports)"
     else

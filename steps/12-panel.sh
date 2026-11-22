@@ -1,6 +1,46 @@
 #!/usr/bin/env bash
 # Step 12 – the panel daemons (phpanel-web, phpanel-root), certificate, systemd, Fail2Ban, first admin.
 
+# The mail program of the panel [28] [47]: the Postfix policy service (phpanel-mail guard) and the sendmail that hosting accounts get. Programs of the
+# system keep the real sendmail (it moves to /usr/sbin/sendmail.real through dpkg-divert, so a Postfix update keeps it there).
+setup_mail_program() {
+  dns_only && return 0
+  have postconf || return 0
+  local mbin="$INSTALLER_DIR/bin/phpanel-mail-linux-$ARCH"
+  if [[ ! -x $mbin ]]; then
+    warn "the mail program is missing in $INSTALLER_DIR/bin; sending limits and sender checks for hosting accounts will not work until it is installed"
+    return 0
+  fi
+  [[ $DRY_RUN == 1 ]] && { info "[dry-run] installing the mail program"; return 0; }
+  install -d -m 755 -o root -g root /usr/local/lib/phpanel
+  install -m 755 -o root -g root "$mbin" /usr/local/lib/phpanel/phpanel-mail.new && mv -f /usr/local/lib/phpanel/phpanel-mail.new /usr/local/lib/phpanel/phpanel-mail
+  ln -sf phpanel-mail /usr/local/lib/phpanel/phpanel-sendmail
+  postfix_guard_config
+  install -d -m 755 /etc/phpanel
+  [[ -f /etc/phpanel/mailguard.nft ]] || printf 'table inet phpanel_mg\n' >/etc/phpanel/mailguard.nft
+  # the real sendmail steps aside and the program of the panel takes its name
+  if ! dpkg-divert --list 2>/dev/null | grep -q '/usr/sbin/sendmail.real'; then
+    if [[ -f /usr/sbin/sendmail && ! -L /usr/sbin/sendmail ]] && dpkg -S /usr/sbin/sendmail 2>/dev/null | grep -q '^postfix:'; then
+      if dpkg-divert --package phpanel --add --rename --divert /usr/sbin/sendmail.real /usr/sbin/sendmail >>"$PHPANEL_LOG_FILE" 2>&1; then
+        ok "the real sendmail moved to /usr/sbin/sendmail.real"
+      else
+        warn "sendmail could not be diverted; accounts keep the standard sendmail (their mail is not checked)"
+        return 0
+      fi
+    else
+      warn "/usr/sbin/sendmail is not the Postfix program; accounts keep it as it is (their mail is not checked)"
+      return 0
+    fi
+  fi
+  if [[ -x /usr/sbin/sendmail.real ]]; then
+    ln -sf /usr/local/lib/phpanel/phpanel-mail /usr/sbin/sendmail
+    # accounts may not hand mail to the queue directly (that path has no checks); they use the sendmail above, which sends it over SMTP
+    postconf -e "authorized_submit_users = !hash:/etc/postfix/phpanel-nosubmit, static:anyone"
+    ok "mail from hosting accounts goes through the checked path"
+  fi
+  systemctl reload postfix >>"$PHPANEL_LOG_FILE" 2>&1 || true
+}
+
 step_12_panel() {
   if [[ ${OPT_NO_PANEL:-0} == 1 ]]; then info "--no-panel: skipping the daemon"; return 0; fi
   local bin="$INSTALLER_DIR/bin/phpanel-web-linux-$ARCH" rootbin="$INSTALLER_DIR/bin/phpanel-root-linux-$ARCH"
@@ -127,6 +167,7 @@ SUDO
   else
     warn "the file manager worker is missing in $INSTALLER_DIR/bin; the file manager will not work until it is installed"
   fi
+  setup_mail_program
   ln -sf /opt/phpanel/phpanel-web /usr/local/bin/phpanel-web
 
   # certificate: self-signed until the ACME step (lego, [21]); the daemon reloads it by itself when it changes
