@@ -10,9 +10,11 @@ None of them is part of the PH-PANEL programs themselves.
 | SnappyMail | newest release at install time | AGPL-3.0 | /opt/phpanel/webmail/snappymail (licence file: LICENSE) |
 | phpMyAdmin | newest release at install time | GPL-2.0-or-later | /opt/phpanel/dbadmin/phpmyadmin (licence file: LICENSE) |
 | SabreDAV 4.7.1 with sabre/event, xml, http, uri, vobject and psr/log | vendored in steps/dav/vendor | BSD-3-Clause, MIT | /opt/phpanel/dav/vendor (licence files kept) |
+| Composer (PHP dependency manager; Laravel and Symfony apps) | 2.11.2, sha256 dd158c0afd41d15fac89e1b4e47b5d42911fe316c3687cd5edac98319b25d028, source https://github.com/composer/composer | MIT | /usr/local/lib/phpanel/composer.phar (licence file: composer-LICENSE, from the same release; wrapper /usr/local/bin/composer) |
+| WP-CLI (WordPress command line) | 2.12.0, sha512 be928f6b8ca1e8dfb9d2f4b75a13aa4aee0896f8a9a0a1c45cd5d2c98605e6172e6d014dda2e27f88c98befc16c040cbb2bd1bfa121510ea5cdf5f6a30fe8832, source https://github.com/wp-cli/wp-cli | MIT | /usr/local/lib/phpanel/wp-cli.phar |
 | ClamAV (scanner program clamscan only; optional malware scan) | the version of the system packages | GPL-2.0 | installed by the system package manager when an administrator switches the malware scan on (licence files under /usr/share/doc/clamav*) |
 | Linux Malware Detect signatures (rfxn.hdb, rfxn.ndb; optional malware scan) | newest at install time, renewed weekly, from https://cdn.rfxn.com/downloads/maldet-sigpack.tgz (project: https://github.com/rfxn/linux-malware-detect) | GPL-2.0 | /var/lib/phpanel/malware/sigs (only the two signature files are used; the Linux Malware Detect program is not installed) |
 
-RCMCardDAV is downloaded from the upstream release page, checked against the checksum above and stored as it was published. Its source code is the
+Composer and WP-CLI are downloaded from their upstream release pages and checked against the checksums above before they are installed. RCMCardDAV is downloaded from the upstream release page, checked against the checksum above and stored as it was published. Its source code is the
 archive itself (PHP). The malware scan is off until an administrator switches it on; ClamAV runs only as the program clamscan (no daemon) and its
 signature files are only read by it. Questions about any licence: office@ph-panel.com.

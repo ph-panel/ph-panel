@@ -36,6 +36,8 @@ step_12_panel() {
   dns_only || install -d -m 700 -o root -g root /var/lib/phpanel/importjobs
   # the WordPress tools [39] [60]: state, runs, snapshots and the requests of jobs (root only)
   dns_only || install -d -m 700 -o root -g root /var/lib/phpanel/wp
+  # Laravel and Symfony apps [59]: state, runs and the requests of jobs (root only)
+  dns_only || install -d -m 700 -o root -g root /var/lib/phpanel/app
   dns_only || install -d -m 700 -o phpanel -g phpanel /var/lib/phpanel/dav-spool
   install -d -m 750 -o root -g phpanel /opt/phpanel/ssl /opt/phpanel/ssl/panel
   install -d -m 750 -o root -g phpanel /etc/phpanel

@@ -135,6 +135,12 @@ CONF
   else
     warn "ModSecurity: $ms is missing (libapache2-mod-security2 package)"
   fi
+  # applications use PUT, PATCH and DELETE (Laravel and Symfony APIs); the rule set allows only GET, HEAD, POST and OPTIONS by default. This file is read
+  # before the rule set, so the check for the method is switched off for these three and everything else stays as it is [59]
+  write_file /etc/modsecurity/phpanel-methods.conf <<'CONF'
+# PH-PANEL: PUT, PATCH and DELETE are normal for web applications
+SecRule REQUEST_METHOD "@rx ^(PUT|PATCH|DELETE)$" "id:1009100,phase:1,pass,nolog,ctl:ruleRemoveById=911100"
+CONF
   local incl; incl=$(apachectl -t -D DUMP_INCLUDES 2>/dev/null || true)
   if grep -qi 'crs\|owasp' <<<"$incl"; then ok "OWASP CRS loaded in Apache"
   else warn "OWASP CRS does not appear in the Apache configuration (modsecurity-crs); check that the rules are included"; fi

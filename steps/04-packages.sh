@@ -87,6 +87,40 @@ install_wpcli() {
   rm -rf "$tmp"
 }
 
+# Composer [59]: the official phar of a pinned version, checked against the SHA-256 written here (not a hash fetched from the same place), with
+# the licence file of the same release (checked the same way). A small wrapper runs it with the PHP of the caller, so inside an account's jail it
+# uses the PHP version of the domain. Nothing is compiled.
+COMPOSER_VERSION=2.11.2
+COMPOSER_SHA256=dd158c0afd41d15fac89e1b4e47b5d42911fe316c3687cd5edac98319b25d028
+COMPOSER_LICENSE_SHA256=7855ac293067aebe7e51afdd23b9dea54b8be24187dbecc9b9142581c37f596c
+COMPOSER_FILE=/usr/local/lib/phpanel/composer.phar
+
+install_composer() {
+  dns_only && return 0
+  local wrapper=/usr/local/bin/composer
+  if [[ -f $COMPOSER_FILE ]] && echo "$COMPOSER_SHA256  $COMPOSER_FILE" | sha256sum -c --status 2>/dev/null; then
+    ok "Composer already installed"
+  else
+    [[ $DRY_RUN == 1 ]] && { info "[dry-run] installing Composer"; return 0; }
+    install -d -m 755 /usr/local/lib/phpanel
+    local tmp
+    tmp=$(mktemp -d)
+    if curl -fsSL --max-time 180 -o "$tmp/composer.phar" "https://getcomposer.org/download/${COMPOSER_VERSION}/composer.phar" \
+       && echo "$COMPOSER_SHA256  $tmp/composer.phar" | sha256sum -c --status \
+       && curl -fsSL --max-time 60 -o "$tmp/LICENSE" "https://raw.githubusercontent.com/composer/composer/${COMPOSER_VERSION}/LICENSE" \
+       && echo "$COMPOSER_LICENSE_SHA256  $tmp/LICENSE" | sha256sum -c --status; then
+      install -m 755 -o root -g root "$tmp/composer.phar" "$COMPOSER_FILE"
+      install -m 644 -o root -g root "$tmp/LICENSE" /usr/local/lib/phpanel/composer-LICENSE
+      ok "Composer ${COMPOSER_VERSION} installed (SHA-256 verified)"
+    else
+      error "downloading or verifying Composer ${COMPOSER_VERSION} failed: Laravel and Symfony apps cannot be created until it is installed"
+    fi
+    rm -rf "$tmp"
+  fi
+  [[ $DRY_RUN == 1 ]] && return 0
+  printf '#!/bin/sh\nexec php /usr/local/lib/phpanel/composer.phar "$@"\n' >"$wrapper.new" && chmod 755 "$wrapper.new" && mv -f "$wrapper.new" "$wrapper"
+}
+
 step_04_packages() {
   services_block
   preseed_debconf
@@ -135,6 +169,7 @@ step_04_packages() {
 
   install_lego
   install_wpcli
+  install_composer
 
   # spot checks from the specification
   if dns_only; then :
