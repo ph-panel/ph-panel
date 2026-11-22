@@ -1,6 +1,55 @@
 #!/usr/bin/env bash
 # Step 06 – web stack: Caddy [02], Apache + ModSecurity [02][58], PHP-FPM [03][58]. Configuration only; starting happens in step 08.
 
+# The landing page of the bare server address. Everything is inline (one style block, one SVG), so the page makes no other request; the style
+# block is allowed by its hash in the Content-Security-Policy of 00-acme.caddy.
+LANDING_CSS=':root{color-scheme:light dark;--bg:#f7f3f3;--card:#fff;--ink:#1a1214;--muted:#5f5156;--line:#e3d6d7;--red:#cc1424;--red-h:#a8101e;--glow:rgba(204,20,36,.12);--lk:#b3101f}
+@media(prefers-color-scheme:dark){:root{--bg:#0b0a0c;--card:#151216;--ink:#f6f2f3;--muted:#b2a8ae;--line:#2c252e;--red:#c8182a;--red-h:#d82033;--glow:rgba(242,73,90,.16);--lk:#ff7a86}}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;font:400 1rem/1.6 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--ink);background:radial-gradient(60rem 28rem at 50% -8rem,var(--glow),transparent 70%),var(--bg)}
+main{flex:1;display:grid;place-items:center;padding:2.5rem 1rem 1.5rem}
+.card{width:100%;max-width:38rem;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:2.4rem 2rem 1.8rem;box-shadow:0 18px 50px -24px rgba(120,20,30,.35);text-align:center}
+.brand{display:inline-flex;align-items:center;gap:.6rem;font-weight:800;font-size:1.15rem;letter-spacing:.01em;text-decoration:none;color:var(--ink)}
+.brand b{font-weight:800}.brand span{color:var(--lk)}.brand svg{width:2.4rem;height:2.4rem}
+h1{font-size:clamp(1.55rem,5vw,2.15rem);line-height:1.2;margin:1.4rem 0 .8rem;letter-spacing:-.015em}
+p{margin:.35rem 0;color:var(--muted)}
+.btns{display:flex;flex-wrap:wrap;gap:.6rem;justify-content:center;margin:1.7rem 0 .4rem}
+.btn{display:inline-flex;align-items:center;min-height:2.75rem;padding:0 1.15rem;border-radius:10px;border:1px solid var(--line);color:var(--ink);text-decoration:none;font-weight:600;background:transparent;white-space:nowrap}
+.btn:hover{border-color:var(--lk);color:var(--lk)}
+.btn.p{background:var(--red);border-color:var(--red);color:#fff}.btn.p:hover{background:var(--red-h);border-color:var(--red-h);color:#fff}
+a:focus-visible{outline:3px solid var(--red);outline-offset:3px}
+.admin{margin-top:1.6rem;padding-top:1.2rem;border-top:1px solid var(--line);font-size:.95rem}
+.admin a{color:var(--lk);font-weight:600}.admin a:hover{text-decoration-thickness:2px}
+footer{padding:1rem;text-align:center;font-size:.85rem;color:var(--muted)}
+@media(max-width:30rem){.card{padding:1.8rem 1.1rem 1.4rem}.btn{flex:1 1 40%;justify-content:center;padding:0 .7rem}}'
+LANDING_HTML='<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="color-scheme" content="light dark">
+<title>Powered by PH-PANEL</title>
+<style>@CSS@</style></head>
+<body><main><section class="card">
+<a class="brand" href="https://ph-panel.com/" rel="noopener noreferrer"><svg viewBox="0 0 32 32" role="img" aria-label="PH-PANEL logo"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0384a"/><stop offset="1" stop-color="#a30017"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#g)"/><path fill="#fff" fill-rule="evenodd" d="M8.5 7h8.3a5.6 5.6 0 0 1 0 11.2H12.6V25H8.5zM12.6 10.8v3.6h4.1a1.8 1.8 0 0 0 0-3.6z"/><circle cx="22.8" cy="22.4" r="2.1" fill="#fff"/></svg><b>PH<span>-</span>PANEL</b></a>
+<h1>This server is powered by PH-PANEL</h1>
+<p>PH-PANEL is a hosting control panel that runs web sites, e-mail, DNS and backups on your own server.</p>
+<p>Simple, fast, and made for people who run their own hosting.</p>
+<div class="btns"><a class="btn p" href="https://ph-panel.com/" rel="noopener noreferrer">ph-panel.com</a><a class="btn" href="https://ph-panel.com/docs" rel="noopener noreferrer">Docs</a><a class="btn" href="https://ph-panel.com/install" rel="noopener noreferrer">Install</a><a class="btn" href="https://ph-panel.com/donate" rel="noopener noreferrer">Support the project</a></div>
+<p class="admin">Are you the administrator? <a href="@PANEL@">Sign in to your panel</a></p>
+</section></main>
+<footer>Made in the E.U.</footer></body></html>
+'
+
+landing_css_hash() { printf '%s' "$LANDING_CSS" | openssl dgst -sha256 -binary | openssl base64 -A; }
+
+setup_landing() {
+  local panel html
+  if [[ -n ${PANEL_HOSTNAME:-} ]]; then panel="https://$PANEL_HOSTNAME:8443/"
+  # shellcheck disable=SC2016
+  else panel='https://{{$h := placeholder "http.request.host"}}{{if contains ":" $h}}[{{$h | html}}]{{else}}{{$h | html}}{{end}}:8443/'; fi
+  html=${LANDING_HTML//@CSS@/$LANDING_CSS}; html=${html//@PANEL@/$panel}
+  [[ $DRY_RUN == 1 ]] && { info "[dry-run] writing the landing page"; return 0; }
+  install -d -m 755 /opt/phpanel/landing
+  printf '%s\n' "$html" | write_file /opt/phpanel/landing/index.html 644
+}
+
 setup_caddy() {
   install -d -m 755 /opt/phpanel /var/lib/phpanel/acme
   # the Caddy fragments list every account's domains: root and the caddy user only
@@ -31,15 +80,30 @@ CONF
   # the loopback listener of the local web apps was a convenience for diagnostics that bypassed the panel's access rules: gone
   rm -f /opt/phpanel/caddy/20-webapps-local.caddy
   [[ $DRY_RUN == 1 ]] || systemctl daemon-reload >/dev/null 2>&1 || true
-  # ACME webroot for the panel hostname [21]; anything else on :80 gets 404
-  write_file /opt/phpanel/caddy/00-acme.caddy <<'CONF'
+  # the page that visitors of the bare server address (or an unknown host name) see: static, self-contained, answers 404 so nothing indexes it as a site
+  setup_landing
+  # ACME webroot for the panel hostname [21]; anything else on :80 gets the landing page with status 404
+  local css_hash; css_hash=$(landing_css_hash)
+  write_file /opt/phpanel/caddy/00-acme.caddy <<CONF
 :80 {
 	handle /.well-known/acme-challenge/* {
 		root * /var/lib/phpanel/acme
 		file_server
 	}
 	handle {
-		respond "PH-PANEL" 404
+		error "PH-PANEL" 404
+	}
+	handle_errors {
+		root * /opt/phpanel/landing
+		header Content-Type "text/html; charset=utf-8"
+		header Content-Security-Policy "default-src 'none'; style-src 'sha256-$css_hash'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		header X-Content-Type-Options nosniff
+		header Referrer-Policy no-referrer
+		header Cache-Control "no-store"
+		header -Server
+		rewrite * /index.html
+		templates
+		file_server
 	}
 }
 CONF
