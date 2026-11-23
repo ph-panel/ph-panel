@@ -12,7 +12,7 @@ Made in the E.U.
 
 ## Status
 
-**Rough estimate: about 77% of the planned features are done** (estimated on 2026-11-22). More is added with every release.
+**Rough estimate: about 77% of the planned features are done** (estimated on 2026-11-23). More is added with every release.
 
 | Area | Done | What you can do today |
 | --- | --- | --- |
